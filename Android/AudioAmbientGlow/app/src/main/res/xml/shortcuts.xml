@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="shortcut_aod_mode"
+        android:enabled="true"
+        android:icon="@drawable/ic_launcher_foreground"
+        android:shortcutShortLabel="@string/shortcut_aod_short"
+        android:shortcutLongLabel="@string/shortcut_aod_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.example.audioambientglow"
+            android:targetClass="com.example.audioambientglow.service.AodGlowActivity" />
+        <categories android:name="android.shortcut.conversation" />
+    </shortcut>
+</shortcuts>

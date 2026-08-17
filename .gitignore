@@ -1,0 +1,11 @@
+# Android / Gradle Build Artifacts
+**/build/
+**/.gradle/
+**/.idea/
+**/*.iml
+local.properties
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+rmskin_build/

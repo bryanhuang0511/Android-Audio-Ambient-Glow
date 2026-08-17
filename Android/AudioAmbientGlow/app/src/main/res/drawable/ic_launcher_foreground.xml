@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- 1. Outer RGB Bloom Halo (Blurred Glow Layers) -->
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M54,20 A34,34 0 0,1 88,54"
+        android:strokeWidth="10"
+        android:strokeAlpha="0.35"
+        android:strokeColor="#FF007F"
+        android:strokeLineCap="round" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M88,54 A34,34 0 0,1 54,88"
+        android:strokeWidth="10"
+        android:strokeAlpha="0.35"
+        android:strokeColor="#0070F3"
+        android:strokeLineCap="round" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M54,88 A34,34 0 0,1 20,54"
+        android:strokeWidth="10"
+        android:strokeAlpha="0.35"
+        android:strokeColor="#00FF88"
+        android:strokeLineCap="round" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M20,54 A34,34 0 0,1 54,20"
+        android:strokeWidth="10"
+        android:strokeAlpha="0.35"
+        android:strokeColor="#FFD700"
+        android:strokeLineCap="round" />
+
+    <!-- 2. Main Intense RGB Rainbow Neon Ring (4 Quarter Arcs with Gradient Transitions) -->
+    <!-- Top-Right: Pink to Cyan -->
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M54,22 A32,32 0 0,1 86,54"
+        android:strokeWidth="4.8"
+        android:strokeColor="#FF007F"
+        android:strokeLineCap="round" />
+    <!-- Bottom-Right: Cyan to Blue/Purple -->
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M86,54 A32,32 0 0,1 54,86"
+        android:strokeWidth="4.8"
+        android:strokeColor="#00F5FF"
+        android:strokeLineCap="round" />
+    <!-- Bottom-Left: Emerald Neon Green -->
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M54,86 A32,32 0 0,1 22,54"
+        android:strokeWidth="4.8"
+        android:strokeColor="#00FF88"
+        android:strokeLineCap="round" />
+    <!-- Top-Left: Bright Gold / Orange -->
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M22,54 A32,32 0 0,1 54,22"
+        android:strokeWidth="4.8"
+        android:strokeColor="#FFB800"
+        android:strokeLineCap="round" />
+
+    <!-- 3. Inner Concentric Neon Thin Ring -->
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M54,54 m-24,0 a24,24 0 1,0 48,0 a24,24 0 1,0 -48,0"
+        android:strokeWidth="1.2"
+        android:strokeColor="#8000F5FF" />
+
+    <!-- 4. Equalizer Audio Spectrum Pulsing Bars inside the ring -->
+    <!-- Bar 1 (Left low) -->
+    <path
+        android:fillColor="#00FF88"
+        android:pathData="M40,58 L40,50"
+        android:strokeWidth="2.4"
+        android:strokeColor="#00FF88"
+        android:strokeLineCap="round" />
+    <!-- Bar 2 (Mid low) -->
+    <path
+        android:fillColor="#00F5FF"
+        android:pathData="M46,63 L46,45"
+        android:strokeWidth="2.4"
+        android:strokeColor="#00F5FF"
+        android:strokeLineCap="round" />
+    <!-- Bar 3 (Center Bass Punch) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,67 L54,41"
+        android:strokeWidth="2.8"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round" />
+    <!-- Bar 4 (Mid high) -->
+    <path
+        android:fillColor="#FF007F"
+        android:pathData="M62,63 L62,45"
+        android:strokeWidth="2.4"
+        android:strokeColor="#FF007F"
+        android:strokeLineCap="round" />
+    <!-- Bar 5 (Right high) -->
+    <path
+        android:fillColor="#FFB800"
+        android:pathData="M68,58 L68,50"
+        android:strokeWidth="2.4"
+        android:strokeColor="#FFB800"
+        android:strokeLineCap="round" />
+
+    <!-- 5. Central Music Glow Sparkle Note -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M52,38 L57,36.5 L57,40 L52,41.5 Z" />
+
+</vector>
