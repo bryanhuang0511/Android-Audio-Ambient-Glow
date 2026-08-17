@@ -624,7 +624,7 @@ class AodGlowActivity : ComponentActivity() {
         }
 
         tvMusicArtist = TextView(this).apply {
-            text = "144Hz 滿版音樂賽道流光"
+            text = "音樂律動氣氛燈"
             textSize = 11.5f
             alpha = 0.65f
             setTextColor(Color.parseColor("#717E8E"))
@@ -888,7 +888,7 @@ class AodGlowActivity : ComponentActivity() {
             handler.post(progressRunnable)
         } else {
             tvMusicTitle?.text = if (track.title.isNotEmpty()) track.title else "手機音效氣氛燈"
-            val subtitle = if (track.album.isNotEmpty()) "${track.artist} · ${track.album}" else if (track.artist.isNotEmpty()) track.artist else "144Hz 滿版音樂賽道流光"
+            val subtitle = if (track.album.isNotEmpty()) "${track.artist} · ${track.album}" else if (track.artist.isNotEmpty()) track.artist else "音樂律動氣氛燈"
             tvMusicArtist?.text = subtitle
             btnPlayPause?.text = "▶"
         }

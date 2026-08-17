@@ -139,20 +139,6 @@ fun GlowDashboardScreen(
                                 modifier = Modifier.padding(6.dp).size(20.dp)
                             )
                         }
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(Brush.horizontalGradient(listOf(Color(0xFF00F5FF), Color(0xFFFF007F))))
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        ) {
-                            Text(
-                                text = "144Hz 直立滿版",
-                                color = Color.Black,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Black
-                            )
-                        }
                     }
                 }
             }
