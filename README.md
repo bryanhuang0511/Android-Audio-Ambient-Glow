@@ -68,13 +68,13 @@
 ## 📥 快速下載與安裝 (Download & Install)
 
 ### 📲 Android 手機端安裝
-1. 前往 [`Release_Artifacts/`](Release_Artifacts/) 資料夾，下載 **[`手機音效氣氛燈.apk`](Release_Artifacts/手機音效氣氛燈.apk)**。
+1. 前往 [`手機氣氛燈/`](手機氣氛燈/) 資料夾，下載 **[`手機音效氣氛燈.apk`](手機氣氛燈/手機音效氣氛燈.apk)**。
 2. 傳輸至手機點擊安裝（支援 Android 8.0 ~ Android 15 各大品牌手機）。
 3. 首次開啟時依引導授予「通知存取權限」與「懸浮視窗權限」即可開始享受！
 
 ### 🖥️ Windows 電腦端安裝
 1. 先確保電腦已安裝 [Rainmeter 官方軟體](https://www.rainmeter.net/)（免費開源）。
-2. 前往 [`Release_Artifacts/`](Release_Artifacts/) 下載 **[`MusicAudioGlow_Suite_v2.0.rmskin`](Release_Artifacts/MusicAudioGlow_Suite_v2.0.rmskin)**。
+2. 前往 [`手機氣氛燈/`](手機氣氛燈/) 下載 **[`MusicAudioGlow_Suite_v2.0.rmskin`](Rainmeter/Packages/MusicAudioGlow_Suite_v2.0.rmskin)**。
 3. 雙擊執行 `.rmskin` 檔案並點擊 **Install** 即可一鍵載入所有流光與小工具！
 4. 詳細設定與風格切換指南請參閱 [Rainmeter 安裝與配置教學](Rainmeter/Rainmeter_安裝與配置教學.md)。
 
@@ -84,7 +84,7 @@
 
 | 📱 Android 設定與控制中心 | 🌙 息屏 AOD 直向音響模式 | 📻 息屏 AOD 橫向音響模式 |
 | :---: | :---: | :---: |
-| <img src="Docs/Screenshots/01_Settings_Control.jpg" width="260" /> | <img src="Docs/Screenshots/02_Portrait_AOD_Mode.jpg" width="260" /> | <img src="Docs/Screenshots/03_Landscape_Speaker_Mode.jpg" width="380" /> |
+| <img src="手機氣氛燈/Screenshots/01_Settings_Control.jpg" width="260" /> | <img src="手機氣氛燈/Screenshots/02_Portrait_AOD_Mode.jpg" width="260" /> | <img src="手機氣氛燈/Screenshots/03_Landscape_Speaker_Mode.jpg" width="380" /> |
 
 ---
 
@@ -93,10 +93,10 @@
 ```text
 ├── .gitignore
 ├── README.md                      # 項目繁體中文 & 英文說明手冊
-├── Release_Artifacts/             # 官方最新發布可直接安裝之二進制檔案
+├── 手機氣氛燈/             # 官方最新發布可直接安裝之二進制檔案
 │   ├── 手機音效氣氛燈.apk          # Android 完整編譯 APK (19.4 MB)
 │   └── MusicAudioGlow_Suite_v2.0.rmskin  # Windows Rainmeter 一鍵安裝包 (143 KB)
-├── Android/                       # Android 端 Kotlin 完整開源專案
+├── Android/                       # 手機氣氛燈/ (Android 端完整專案與安裝包)
 │   ├── AudioAmbientGlow/          # 完整 Android Studio / Gradle 專案源碼
 │   └── 手機音效氣氛燈_開發交接與規格書.md # Android 開發架構與技術交接文檔
 ├── Windows_Rainmeter/             # Windows 電腦端套件源碼與圖文手冊
