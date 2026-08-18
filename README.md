@@ -1,4 +1,4 @@
-# 🌌 Audio Ambient Glow Suite (手機音效氣氛燈 & 電腦環繞音響流光)
+﻿# 🌌 視覺動態效果 (Visual Dynamic Effects)
 
 <div align="center">
 
@@ -24,7 +24,7 @@
 
 ---
 
-## 📱 Android 手機端特色
+## 📱 Part 1: Android 手機端氣氛燈特色
 
 * **純系統媒體音訊感知 (免麥克風)**：
   * 直接捕捉系統音訊回傳信號，不調用麥克風硬體。
@@ -45,7 +45,7 @@
 
 ---
 
-## 💻 Windows 電腦端特色 (Rainmeter)
+## 💻 Part 2: Windows 電腦端 Rainmeter 特色 (音樂板 & 特效)
 
 * **144Hz 滿血刷新率 (Update=7ms)**：
   * 完美支援高更新率電競螢幕與高畫質辦公顯示器，極致滑順零拖影。
