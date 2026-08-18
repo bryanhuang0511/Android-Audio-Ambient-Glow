@@ -1,4 +1,4 @@
-﻿# 🌌 視覺動態效果 (Visual Dynamic Effects)
+# 🌌 視覺動態效果 (Visual Dynamic Effects)
 
 <div align="center">
 
@@ -76,7 +76,7 @@
 1. 先確保電腦已安裝 [Rainmeter 官方軟體](https://www.rainmeter.net/)（免費開源）。
 2. 前往 [`Release_Artifacts/`](Release_Artifacts/) 下載 **[`MusicAudioGlow_Suite_v2.0.rmskin`](Release_Artifacts/MusicAudioGlow_Suite_v2.0.rmskin)**。
 3. 雙擊執行 `.rmskin` 檔案並點擊 **Install** 即可一鍵載入所有流光與小工具！
-4. 詳細設定與風格切換指南請參閱 [Rainmeter 安裝與配置教學](Windows_Rainmeter/Rainmeter_安裝與配置教學.md)。
+4. 詳細設定與風格切換指南請參閱 [Rainmeter 安裝與配置教學](Rainmeter/Rainmeter_安裝與配置教學.md)。
 
 ---
 
