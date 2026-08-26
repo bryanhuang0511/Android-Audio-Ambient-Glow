@@ -9,3 +9,9 @@ Thumbs.db
 *.log
 *.tmp
 rmskin_build/
+
+# Rainmeter Runtime & System Cache
+**/@Vault/
+**/*.bak
+Rainmeter.stats
+

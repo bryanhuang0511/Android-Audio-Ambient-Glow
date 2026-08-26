@@ -74,9 +74,13 @@
 
 ### 🖥️ Windows 電腦端安裝
 1. 先確保電腦已安裝 [Rainmeter 官方軟體](https://www.rainmeter.net/)（免費開源）。
-2. 前往 [`mobile/`](mobile/) 下載 **[`MusicAudioGlow_Suite_v2.0.rmskin`](PC/Packages/MusicAudioGlow_Suite_v2.0.rmskin)**。
-3. 雙擊執行 `.rmskin` 檔案並點擊 **Install** 即可一鍵載入所有流光與小工具！
-4. 詳細設定與風格切換指南請參閱 [Rainmeter 安裝與配置教學](PC/Rainmeter_安裝與配置教學.md)。
+2. 前往 [`PC/Rainmeter/Packages/`](PC/Rainmeter/Packages/) 下載所需的 `.rmskin` 套件：
+   * **360° 邊框流光**：[`MusicAudioGlow_Suite_v2.1.rmskin`](PC/Rainmeter/Packages/MusicAudioGlow_Suite_v2.1.rmskin)
+   * **工作列音樂小工具**：[`工作列播放器_2.0.rmskin`](PC/Rainmeter/Packages/工作列播放器_2.0.rmskin)
+   * **彩虹動態頻譜**：[`彩虹隨時變_.rmskin`](PC/Rainmeter/Packages/彩虹隨時變_.rmskin)
+   * **必備瀏覽器通訊插件**：[`WebNowPlaying-3.0.0-alpha.5.rmskin`](PC/Rainmeter/Packages/WebNowPlaying-3.0.0-alpha.5.rmskin)
+3. 雙擊執行 `.rmskin` 檔案並點擊 **Install** 即可一鍵載入生效！
+4. 詳細設定、代碼解析與風格切換指南請參閱 [PC/Rainmeter 說明手冊](PC/Rainmeter/README.md) 與 [Rainmeter 安裝與配置教學](PC/Rainmeter/Rainmeter_安裝與配置教學.md)。
 
 ---
 
@@ -93,19 +97,26 @@
 ```text
 ├── .gitignore
 ├── README.md                      # 項目繁體中文 & 英文說明手冊
-├── mobile/             # 官方最新發布可直接安裝之二進制檔案
-│   ├── 手機音效氣氛燈.apk          # Android 完整編譯 APK (19.4 MB)
-│   └── MusicAudioGlow_Suite_v2.0.rmskin  # Windows Rainmeter 一鍵安裝包 (143 KB)
-├── Android/                       # mobile/ (Android 端完整專案與安裝包)
+├── mobile/                        # Android 手機端專案與安裝包
+│   ├── 手機音效氣氛燈.apk          # Android 完整編譯 APK
 │   ├── AudioAmbientGlow/          # 完整 Android Studio / Gradle 專案源碼
-│   └── 手機音效氣氛燈_開發交接與規格書.md # Android 開發架構與技術交接文檔
-├── Windows_PC/             # Windows 電腦端套件源碼與圖文手冊
-│   ├── MusicAudioGlow/            # 360° 全螢幕邊框環繞流光 Skin 源碼
-│   ├── BMediaTaskbarWidget/       # 工作列音樂資訊與律動小工具 Skin 源碼
-│   ├── MusicAudioGlow_Suite_v2.0.rmskin  # 一鍵安裝包
-│   └── Rainmeter_安裝與配置教學.md # 詳細圖文配置指引 (含 5 大風格切換教學)
-└── Docs/                          # 截圖與技術說明展示
-    └── Screenshots/               # 實機展示照片
+│   ├── Screenshots/               # 實機展示照片
+│   └── 手機音效氣氛燈_開發交接與規格書.md
+└── PC/                            # Windows 電腦端
+    ├── Rainmeter/                 # Rainmeter 桌面動態音效視覺化核心專案
+    │   ├── README.md              # Rainmeter 專屬 GitHub 導覽手冊
+    │   ├── Rainmeter_安裝與配置教學.md
+    │   ├── Packages/              # 官方一鍵安裝包 (.rmskin)
+    │   │   ├── MusicAudioGlow_Suite_v2.1.rmskin   # 360° 邊框流光
+    │   │   ├── 工作列播放器_2.0.rmskin            # 工作列音樂播放器
+    │   │   ├── 彩虹隨時變_.rmskin                 # 彩虹跳動頻譜 Bar
+    │   │   └── WebNowPlaying-3.0.0-alpha.5.rmskin # 瀏覽器通訊插件
+    │   └── Skins/                 # 原始碼目錄 (可直接部署到 Rainmeter)
+    │       ├── MusicAudioGlow/    # 360° 邊框流光 Skin 源碼 (5 大主題)
+    │       ├── BMediaTaskbarWidget/ # 工作列播放器與波紋 Skin 源碼
+    │       ├── monstercat-visualizer/ # 頻譜條視覺化源碼
+    │       └── @Vault/            # 共用插件庫
+    └── Lively_AOD_Music_Hub/      # Lively Wallpaper 相關組件
 ```
 
 ---
