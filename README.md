@@ -51,8 +51,8 @@
 
 ### 💻 Windows 電腦端（請前往 [`rainmeter` 分支](https://github.com/bryanhuang0511/sound-atmosphere/tree/rainmeter) 下載）
 * 📦 **[MusicAudioGlow_Suite_v2.1.rmskin (360° 邊框流光)](https://github.com/bryanhuang0511/sound-atmosphere/raw/rainmeter/Packages/MusicAudioGlow_Suite_v2.1.rmskin)**
-* 📦 **[工作列播放器_2.0.rmskin (工作列音樂小工具)](https://github.com/bryanhuang0511/sound-atmosphere/raw/rainmeter/Packages/%E5%B7%A5%E4%BD%9C%E5%88%97%E6%92%AD%E6%94%BE%E5%99%A8_2.0.rmskin)**
-* 📦 **[彩虹隨時變_.rmskin (彩虹動態頻譜條)](https://github.com/bryanhuang0511/sound-atmosphere/raw/rainmeter/Packages/%E5%BD%A9%E8%89%B2%E9%9A%A8%E6%99%82%E8%AE%8A_.rmskin)**
+* 📦 **[Taskbar_Music_Widget_v2.0.rmskin (工作列音樂小工具)](https://github.com/bryanhuang0511/sound-atmosphere/raw/rainmeter/Packages/Taskbar_Music_Widget_v2.0.rmskin)**
+* 📦 **[Rainbow_Spectrum_Visualizer_v2.1.rmskin (彩虹動態頻譜條)](https://github.com/bryanhuang0511/sound-atmosphere/raw/rainmeter/Packages/Rainbow_Spectrum_Visualizer_v2.1.rmskin)**
 * 🔌 **[WebNowPlaying-3.0.0-alpha.5.rmskin (瀏覽器通訊必備插件)](https://github.com/bryanhuang0511/sound-atmosphere/raw/rainmeter/Packages/WebNowPlaying-3.0.0-alpha.5.rmskin)**
 
 ### 📱 Android 手機端（請前往 [`mobile` 分支](https://github.com/bryanhuang0511/sound-atmosphere/tree/mobile) 下載）
