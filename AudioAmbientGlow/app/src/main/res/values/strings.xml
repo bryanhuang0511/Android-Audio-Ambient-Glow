@@ -1,0 +1,10 @@
+<resources>
+    <string name="app_name">手機音效氣氛燈</string>
+    <string name="tile_name">音效氣氛燈</string>
+    <string name="service_running_title">音效氣氛燈運行中</string>
+    <string name="service_running_desc">即時感應音訊並渲染滿版 144Hz 邊框流光</string>
+    <string name="widget_name">AMOLED 息屏 AOD 捷徑</string>
+    <string name="widget_description">一鍵進入純黑息屏音樂氣氛燈模式 (AMOLED 0 耗電)</string>
+    <string name="shortcut_aod_short">AMOLED 息屏</string>
+    <string name="shortcut_aod_long">進入 AMOLED 息屏音樂氣氛燈</string>
+</resources>
