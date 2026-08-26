@@ -5,6 +5,7 @@
 
 ![Ecosystem](https://img.shields.io/badge/Architecture-Multi--Branch%20Hub-7209b7?style=for-the-badge&logo=git)
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Android-0078d4?style=for-the-badge&logo=windows)
+![GitHub Release](https://img.shields.io/badge/Release-v2.1.0-orange?style=for-the-badge&logo=github)
 ![Rainmeter Branch](https://img.shields.io/badge/Branch-rainmeter%20(Ready)-00b4d8?style=for-the-badge)
 ![Mobile Branch](https://img.shields.io/badge/Branch-mobile%20(Active)-3ddc84?style=for-the-badge&logo=android)
 ![License](https://img.shields.io/badge/License-MIT-f72585?style=for-the-badge)
@@ -13,6 +14,7 @@
 
 **歡迎來到「視覺動態效果」生態系導覽中心！**  
 本專案採用 **多分支模組化架構 (Multi-Branch Modular Architecture)**，將不同技術棧與平台的音效動態專案獨立隔離於專屬分支中。  
+所有經過打包的發布版安裝包（`.rmskin` 與 `.apk`）均已發布至 [**GitHub Releases**](https://github.com/bryanhuang0511/sound-atmosphere/releases)，方便一鍵下載體驗！  
 `main` 分支專注作為全域導覽地圖，請點擊下方傳送門前往各專案分支體驗完整軟體與源代碼：
 
 </div>
