@@ -1,4 +1,4 @@
-package com.example.audioambientglow.service
+﻿package com.example.audioambientglow.service
 
 import android.content.Context
 import android.media.AudioAttributes
@@ -13,6 +13,7 @@ import android.os.Looper
 import android.os.SystemClock
 import android.util.Log
 import android.view.KeyEvent
+import com.example.audioambientglow.lyrics.LyricsEngine
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -103,7 +104,7 @@ object MediaPlaybackDetector {
                 isCallbackRegistered = true
                 Log.d(TAG, "AudioManager AudioPlaybackCallback registered successfully.")
             } catch (e: Exception) {
-                Log.w(TAG, "Failed to register AudioPlaybackCallback: ${e.message}")
+                Log.w(TAG, "Failed to register AudioPlaybackCallback: ")
             }
         }
     }
@@ -118,9 +119,19 @@ object MediaPlaybackDetector {
             activeController = controller
         }
         val isPlaying = state?.state == PlaybackState.STATE_PLAYING
-        val title = metadata?.getString(MediaMetadata.METADATA_KEY_TITLE) ?: ""
-        val artist = metadata?.getString(MediaMetadata.METADATA_KEY_ARTIST) ?: ""
-        val album = metadata?.getString(MediaMetadata.METADATA_KEY_ALBUM) ?: ""
+
+        val rawTitle = metadata?.getString(MediaMetadata.METADATA_KEY_TITLE)
+            ?: metadata?.getString(MediaMetadata.METADATA_KEY_DISPLAY_TITLE)
+            ?: metadata?.description?.title?.toString() ?: ""
+
+        val rawArtist = metadata?.getString(MediaMetadata.METADATA_KEY_ARTIST)
+            ?: metadata?.getString(MediaMetadata.METADATA_KEY_ALBUM_ARTIST)
+            ?: metadata?.getString(MediaMetadata.METADATA_KEY_AUTHOR)
+            ?: metadata?.description?.subtitle?.toString() ?: ""
+
+        val rawAlbum = metadata?.getString(MediaMetadata.METADATA_KEY_ALBUM)
+            ?: metadata?.description?.description?.toString() ?: ""
+
         val duration = metadata?.getLong(MediaMetadata.METADATA_KEY_DURATION) ?: 0L
         val position = state?.position ?: 0L
         val lastUpdate = state?.lastPositionUpdateTime ?: SystemClock.elapsedRealtime()
@@ -152,10 +163,13 @@ object MediaPlaybackDetector {
             }
         }
 
+        val prevTitle = _playbackStateFlow.value.title
+        val prevArtist = _playbackStateFlow.value.artist
+
         _playbackStateFlow.value = MediaTrackInfo(
-            title = title,
-            artist = artist,
-            album = album,
+            title = rawTitle,
+            artist = rawArtist,
+            album = rawAlbum,
             isPlaying = isPlaying,
             packageName = packageName,
             durationMs = duration,
@@ -165,15 +179,29 @@ object MediaPlaybackDetector {
             shuffleMode = shuffle,
             repeatMode = repeat
         )
+
+        // 🌟 Auto-fetch & pre-cache lyrics in background immediately on track change!
+        if (rawTitle.isNotEmpty() && (rawTitle != prevTitle || rawArtist != prevArtist)) {
+            Log.i(TAG, "New track detected: '' by '' (), fetching lyrics now...")
+            LyricsEngine.fetchLyrics(rawTitle, rawArtist)
+        }
     }
 
     fun setPlaying(isPlaying: Boolean, title: String = "", artist: String = "", pkg: String = "") {
+        val prevTitle = _playbackStateFlow.value.title
+        val newTitle = if (title.isNotEmpty()) title else _playbackStateFlow.value.title
+        val newArtist = if (artist.isNotEmpty()) artist else _playbackStateFlow.value.artist
+
         _playbackStateFlow.value = _playbackStateFlow.value.copy(
-            title = if (title.isNotEmpty()) title else _playbackStateFlow.value.title,
-            artist = if (artist.isNotEmpty()) artist else _playbackStateFlow.value.artist,
+            title = newTitle,
+            artist = newArtist,
             isPlaying = isPlaying,
             packageName = if (pkg.isNotEmpty()) pkg else _playbackStateFlow.value.packageName
         )
+
+        if (newTitle.isNotEmpty() && newTitle != prevTitle) {
+            LyricsEngine.fetchLyrics(newTitle, newArtist)
+        }
     }
 
     fun isMusicActive(context: Context): Boolean {
@@ -182,9 +210,6 @@ object MediaPlaybackDetector {
         return audioManager?.isMusicActive ?: false
     }
 
-    /**
-     * Media Control: Play / Pause Toggle
-     */
     fun togglePlayPause(context: Context) {
         val ctrl = activeController
         if (ctrl != null) {
@@ -197,15 +222,12 @@ object MediaPlaybackDetector {
                 }
                 return
             } catch (e: Exception) {
-                Log.w(TAG, "Failed to control active MediaController: ${e.message}")
+                Log.w(TAG, "Failed to control active MediaController: ")
             }
         }
         sendMediaKeyEvent(context, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE)
     }
 
-    /**
-     * Media Control: Skip to Next Track
-     */
     fun skipToNext(context: Context) {
         val ctrl = activeController
         if (ctrl != null) {
@@ -213,15 +235,12 @@ object MediaPlaybackDetector {
                 ctrl.transportControls.skipToNext()
                 return
             } catch (e: Exception) {
-                Log.w(TAG, "Failed skipToNext via controller: ${e.message}")
+                Log.w(TAG, "Failed skipToNext via controller: ")
             }
         }
         sendMediaKeyEvent(context, KeyEvent.KEYCODE_MEDIA_NEXT)
     }
 
-    /**
-     * Media Control: Skip to Previous Track
-     */
     fun skipToPrevious(context: Context) {
         val ctrl = activeController
         if (ctrl != null) {
@@ -229,15 +248,12 @@ object MediaPlaybackDetector {
                 ctrl.transportControls.skipToPrevious()
                 return
             } catch (e: Exception) {
-                Log.w(TAG, "Failed skipToPrevious via controller: ${e.message}")
+                Log.w(TAG, "Failed skipToPrevious via controller: ")
             }
         }
         sendMediaKeyEvent(context, KeyEvent.KEYCODE_MEDIA_PREVIOUS)
     }
 
-    /**
-     * Media Control: Toggle Shuffle Mode
-     */
     fun toggleShuffle(context: Context) {
         val current = _playbackStateFlow.value.shuffleMode
         val newMode = if (current == SHUFFLE_ALL) SHUFFLE_NONE else SHUFFLE_ALL
@@ -258,9 +274,6 @@ object MediaPlaybackDetector {
         }
     }
 
-    /**
-     * Media Control: Toggle Repeat Mode
-     */
     fun toggleRepeat(context: Context) {
         val current = _playbackStateFlow.value.repeatMode
         val newMode = when (current) {
@@ -285,9 +298,6 @@ object MediaPlaybackDetector {
         }
     }
 
-    /**
-     * Media Control: Seek To
-     */
     fun seekTo(positionMs: Long) {
         val ctrl = activeController
         if (ctrl != null) {
@@ -298,7 +308,7 @@ object MediaPlaybackDetector {
                     lastUpdateTimeMs = SystemClock.elapsedRealtime()
                 )
             } catch (e: Exception) {
-                Log.w(TAG, "Failed seekTo: ${e.message}")
+                Log.w(TAG, "Failed seekTo: ")
             }
         }
     }
@@ -312,7 +322,7 @@ object MediaPlaybackDetector {
             audioManager.dispatchMediaKeyEvent(downEvent)
             audioManager.dispatchMediaKeyEvent(upEvent)
         } catch (e: Exception) {
-            Log.e(TAG, "Failed dispatchMediaKeyEvent: ${e.message}")
+            Log.e(TAG, "Failed dispatchMediaKeyEvent: ")
         }
     }
 }

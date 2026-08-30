@@ -3,6 +3,7 @@ package com.example.audioambientglow.engine
 import com.example.audioambientglow.audio.AudioFeatures
 import com.example.audioambientglow.data.GlowConfig
 import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.pow
 import kotlin.math.sin
 
@@ -25,6 +26,12 @@ class GlowPhysicsEngine {
     private var pixelShiftX: Float = 0f
     private var pixelShiftY: Float = 0f
 
+    // 🎛️ PC Rainmeter & Lively AuraBeam DSP Engine Core (30ms attack, 330ms decay)
+    private var smoothedBass: Float = 0f
+    private var smoothedMid: Float = 0f
+    private val attackSpeed: Float = 32.0f // 30ms 閃電級瞬態爆發 (Kick drum 下潛即刻狂飆)
+    private val decaySpeed: Float = 3.2f   // 310ms 絲滑慣性減速滑行 (留出充裕重力減速弧度)
+
     fun reset() {
         currentBrightness = 0f
         currentPhase = 0f
@@ -32,10 +39,13 @@ class GlowPhysicsEngine {
         antiBurnInTimer = 0f
         pixelShiftX = 0f
         pixelShiftY = 0f
+        smoothedBass = 0f
+        smoothedMid = 0f
     }
 
     /**
      * Updates one simulation step for the given delta time (in seconds).
+     * 1:1 PC DSP mathematical model ported from Lively AOD & Rainmeter AudioLevel.
      */
     fun update(
         dt: Float,
@@ -44,37 +54,52 @@ class GlowPhysicsEngine {
     ): GlowFrameState {
         val clampedDt = dt.coerceIn(0.0005f, 0.05f)
 
-        // 1. Noise Gate & Dynamic Target Brightness
-        val targetBrightness = if (audio.rawRms < config.noiseGateThreshold && audio.bassEnergy < config.noiseGateThreshold) {
+        // 1. Clean Noise Gate (RMS < threshold -> 0.0f instant snap off)
+        val isQuiet = audio.rawRms < config.noiseGateThreshold && audio.bassEnergy < config.noiseGateThreshold
+        val targetBrightness = if (isQuiet) {
             0.0f
         } else {
             val normalizedRms = ((audio.rawRms - config.noiseGateThreshold) / (1.0f - config.noiseGateThreshold)).coerceIn(0f, 1f)
             val normalizedBass = ((audio.bassEnergy - config.noiseGateThreshold) / (1.0f - config.noiseGateThreshold)).coerceIn(0f, 1f)
-            max(normalizedRms * 0.9f, normalizedBass * 1.25f).coerceIn(0f, 1f)
+            max(normalizedRms * 0.9f, normalizedBass * 1.35f).coerceIn(0f, 1f)
         }
 
-        // 2. Instant Attack (~0.06s) & Musical Decay (~0.8s) Envelope Follower
+        // 2. Fast Attack (<25ms) & Smooth Musical Decay Envelope Follower
         if (targetBrightness > currentBrightness) {
-            // Punchy fast attack
-            val attackFactor = (clampedDt / 0.06f).coerceIn(0f, 1f)
+            val attackFactor = min(1.0f, clampedDt * attackSpeed)
             currentBrightness += (targetBrightness - currentBrightness) * attackFactor
         } else {
-            // Smooth musical decay
-            val decayFactor = (clampedDt / max(0.2f, config.decayTimeSeconds * 0.6f)).coerceIn(0f, 1f)
-            currentBrightness -= (currentBrightness - targetBrightness) * decayFactor
+            val decayFactor = min(1.0f, clampedDt * decaySpeed)
+            currentBrightness += (targetBrightness - currentBrightness) * decayFactor
         }
 
         if (currentBrightness < 0.002f && targetBrightness == 0f) {
             currentBrightness = 0.0f
         }
 
-        // 3. Perimeter Velocity & Non-linear Heavy Beat Boost Engine
-        // Ported from PC Rainmeter WASAPI mathematical model with Mobile aspect-ratio tuning
-        val heavyBass = audio.bassEnergy.pow(1.8f)
-        val midPunch = audio.midEnergy.pow(1.2f)
-        val beatEnergy = (heavyBass * 1.6f + midPunch * 0.6f).coerceIn(0f, 3f)
-        val bassBoost = config.bassSpeedMultiplier * beatEnergy * 1.8f
-        val instantaneousSpeed = config.baseSpeed + bassBoost
+        // 3. PC AuraBeam / Rainmeter AudioLevel DSP: Non-linear Bass + Mid Acceleration
+        val targetBass = audio.bassEnergy.coerceAtLeast(0f).pow(1.30f)
+        if (targetBass > smoothedBass) {
+            smoothedBass += (targetBass - smoothedBass) * min(1.0f, clampedDt * attackSpeed)
+        } else {
+            smoothedBass += (targetBass - smoothedBass) * min(1.0f, clampedDt * decaySpeed)
+        }
+
+        val targetMid = audio.midEnergy.coerceAtLeast(0f).pow(1.25f)
+        if (targetMid > smoothedMid) {
+            smoothedMid += (targetMid - smoothedMid) * min(1.0f, clampedDt * attackSpeed)
+        } else {
+            smoothedMid += (targetMid - smoothedMid) * min(1.0f, clampedDt * decaySpeed)
+        }
+
+        // Beat velocity boost with high dynamic contrast
+        val beatVelocity = (smoothedBass * 2.8f + smoothedMid * 0.8f) * config.bassSpeedMultiplier
+        val instantaneousSpeed = if (currentBrightness > 0.005f) {
+            config.baseSpeed + beatVelocity
+        } else {
+            config.baseSpeed * 0.5f
+        }
+
         currentPhase = (currentPhase + instantaneousSpeed * clampedDt) % 1.0f
         if (currentPhase < 0f) currentPhase += 1.0f
 

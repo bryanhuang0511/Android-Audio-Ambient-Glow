@@ -409,3 +409,4 @@ class AudioVisualizerManager private constructor(private val context: Context) {
         }
     }
 }
+

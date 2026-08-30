@@ -1,4 +1,4 @@
-package com.example.audioambientglow.service
+﻿package com.example.audioambientglow.service
 
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
@@ -6,15 +6,12 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.content.res.ColorStateList
 import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.ClipDrawable
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.LayerDrawable
-import android.graphics.drawable.RippleDrawable
-import android.media.session.PlaybackState
 import android.os.BatteryManager
 import android.os.Build
 import android.os.Bundle
@@ -44,6 +41,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.example.audioambientglow.audio.AudioFeatures
 import com.example.audioambientglow.audio.AudioVisualizerManager
 import com.example.audioambientglow.data.GlowPreferencesRepository
+import com.example.audioambientglow.lyrics.LyricsEngine
 import com.example.audioambientglow.util.CrashHandler
 import com.example.audioambientglow.util.LunarCalendarUtil
 import kotlinx.coroutines.flow.collectLatest
@@ -51,7 +49,6 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
-import kotlin.math.abs
 
 class AodGlowActivity : ComponentActivity() {
 
@@ -67,19 +64,21 @@ class AodGlowActivity : ComponentActivity() {
     private var tvClockHourMin: TextView? = null
     private var tvBattery: TextView? = null
 
-    // vivo OriginOS Style Music Card Elements
+    // vivo OriginOS Style Pure Music Card
     private var musicCard: LinearLayout? = null
     private var tvMusicTitle: TextView? = null
     private var tvMusicArtist: TextView? = null
     private var tvTimeElapsed: TextView? = null
     private var tvTimeDuration: TextView? = null
     private var musicSeekBar: SeekBar? = null
-    private var btnShuffle: TextView? = null
-    private var btnPrev: TextView? = null
-    private var btnPlayPause: TextView? = null
-    private var btnNext: TextView? = null
-    private var btnRepeat: TextView? = null
-    private var musicEqBars: Array<View> = emptyArray()
+
+    // 🎤 Dynamic Synced Lyrics Big Card (Pure White Active Line, Lower-Middle Spaced)
+    private var lyricsCard: LinearLayout? = null
+    private var tvLyricPrev: TextView? = null
+    private var tvLyricActive: TextView? = null
+    private var tvLyricNext: TextView? = null
+    private var lastActiveLyric = ""
+    private var lastObservedTitle = ""
 
     private var currentBatteryText = "🔋 80%"
     private var lastTrackInfo: MediaTrackInfo = MediaTrackInfo()
@@ -101,12 +100,12 @@ class AodGlowActivity : ComponentActivity() {
         }
     }
 
-    // Music progress bar updater (500ms when playing)
+    // Music progress & lyrics realtime updater (160ms for PC-like ultra smooth tracking)
     private val progressRunnable = object : Runnable {
         override fun run() {
             updateProgressTime()
             if (lastTrackInfo.isPlaying) {
-                handler.postDelayed(this, 500L)
+                handler.postDelayed(this, 160L)
             }
         }
     }
@@ -231,7 +230,6 @@ class AodGlowActivity : ComponentActivity() {
             )
 
             val lp = window.attributes
-            // Dimmer AOD screen brightness for eye comfort and zero-power OLED dark mode
             lp.screenBrightness = 0.08f
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 lp.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
@@ -271,7 +269,7 @@ class AodGlowActivity : ComponentActivity() {
             rootContainer.removeAllViews()
         }
 
-        // 1. Fixed 144Hz Full-Screen Glow Track (Stays pinned to screen border)
+        // 1. Fixed Full-Screen Glow Track
         glowTrackView = GlowTrackView(this).apply {
             setAodFullscreen(true)
             layoutParams = FrameLayout.LayoutParams(
@@ -281,7 +279,7 @@ class AodGlowActivity : ComponentActivity() {
         }
         rootContainer.addView(glowTrackView)
 
-        // 2. Draggable Center Content Layer (Translates Upwards on Swipe)
+        // 2. Center Content Layer
         contentLayer = FrameLayout(this).apply {
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
@@ -309,10 +307,10 @@ class AodGlowActivity : ComponentActivity() {
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
             ).apply {
-                topMargin = (64 * density).toInt()
-                bottomMargin = (32 * density).toInt()
-                leftMargin = (20 * density).toInt()
-                rightMargin = (20 * density).toInt()
+                topMargin = (44 * density).toInt()
+                bottomMargin = (20 * density).toInt()
+                leftMargin = (18 * density).toInt()
+                rightMargin = (18 * density).toInt()
             }
         }
 
@@ -324,7 +322,7 @@ class AodGlowActivity : ComponentActivity() {
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply {
-                bottomMargin = (10 * density).toInt()
+                bottomMargin = (6 * density).toInt()
             }
         }
 
@@ -351,26 +349,26 @@ class AodGlowActivity : ComponentActivity() {
         topStatusRow.addView(tvBattery)
         centerLayout.addView(topStatusRow)
 
-        // Date + Lunar Row (格式：8月17日 星期一 · 歲次丙午年 七月初五)
+        // Date + Lunar Row
         tvDateLunar = TextView(this).apply {
-            text = "8月17日 星期一 · 歲次丙午年 七月初五"
-            textSize = 14f
-            alpha = 0.72f
+            text = "8月31日 星期一 · 農曆七月十九"
+            textSize = 13.5f
+            alpha = 0.75f
             setTextColor(Color.parseColor("#8A99AD"))
             typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply {
-                bottomMargin = (6 * density).toInt()
+                bottomMargin = (4 * density).toInt()
             }
         }
         centerLayout.addView(tvDateLunar)
 
-        // Digital Clock (Rounded numerals, NO seconds, elegant pure HH:mm)
+        // Digital Clock (Rounded pure HH:mm)
         tvClockHourMin = TextView(this).apply {
             text = "18:00"
-            textSize = 76f
+            textSize = 66f
             alpha = 0.88f
             setTextColor(Color.parseColor("#E2E8F0"))
             typeface = getRoundedClockTypeface()
@@ -379,16 +377,20 @@ class AodGlowActivity : ComponentActivity() {
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply {
-                bottomMargin = (18 * density).toInt()
+                bottomMargin = (10 * density).toInt()
             }
         }
         centerLayout.addView(tvClockHourMin)
 
-        // vivo Style Music Card (Title, Artist, Progress Bar, Full Controls)
+        // 1. vivo Style Pure Music Info & Progress Card (Horizontal Title & Artist)
         val mCard = createVivoStyleMusicCard(density, isLandscape = false)
         centerLayout.addView(mCard)
 
-        // Spacer pushing unlock text to bottom
+        // 2. 🎤 Separate Big Dynamic Synced Lyrics Card (Spaced downward to lower-center zone)
+        val lCard = createBigLyricsCard(density, isLandscape = false)
+        centerLayout.addView(lCard)
+
+        // Spacer
         val bottomSpacer = View(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -398,7 +400,7 @@ class AodGlowActivity : ComponentActivity() {
         }
         centerLayout.addView(bottomSpacer)
 
-        // Clean Bottom Unlock Indicator (Only 向上解鎖)
+        // Bottom Clean Unlock Indicator
         val tvUnlock = TextView(this).apply {
             text = "向上解鎖"
             textSize = 12f
@@ -409,7 +411,7 @@ class AodGlowActivity : ComponentActivity() {
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply {
-                bottomMargin = (40 * density).toInt()
+                bottomMargin = (26 * density).toInt()
             }
         }
         centerLayout.addView(tvUnlock)
@@ -418,7 +420,7 @@ class AodGlowActivity : ComponentActivity() {
     }
 
     // ==========================================
-    // LANDSCAPE LAYOUT (橫向模式 - 音響桌面擺放專用)
+    // LANDSCAPE LAYOUT (橫向模式)
     // ==========================================
     private fun buildLandscapeContent(parent: FrameLayout, density: Float) {
         val rootLinear = LinearLayout(this).apply {
@@ -428,14 +430,13 @@ class AodGlowActivity : ComponentActivity() {
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
             ).apply {
-                topMargin = (16 * density).toInt()
-                bottomMargin = (12 * density).toInt()
-                leftMargin = (32 * density).toInt()
-                rightMargin = (32 * density).toInt()
+                topMargin = (12 * density).toInt()
+                bottomMargin = (8 * density).toInt()
+                leftMargin = (24 * density).toInt()
+                rightMargin = (24 * density).toInt()
             }
         }
 
-        // Horizontal split: Left = Clock/Date, Right = Wide vivo Music Card
         val rowContent = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -453,10 +454,10 @@ class AodGlowActivity : ComponentActivity() {
             layoutParams = LinearLayout.LayoutParams(
                 0,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
-                0.9f
+                0.85f
             ).apply {
-                leftMargin = (12 * density).toInt()
-                rightMargin = (12 * density).toInt()
+                leftMargin = (8 * density).toInt()
+                rightMargin = (8 * density).toInt()
             }
         }
 
@@ -496,7 +497,7 @@ class AodGlowActivity : ComponentActivity() {
 
         tvClockHourMin = TextView(this).apply {
             text = "18:00"
-            textSize = 62f
+            textSize = 54f
             alpha = 0.88f
             setTextColor(Color.parseColor("#E2E8F0"))
             typeface = getRoundedClockTypeface()
@@ -511,8 +512,8 @@ class AodGlowActivity : ComponentActivity() {
         leftCol.addView(tvClockHourMin)
 
         tvDateLunar = TextView(this).apply {
-            text = "8月17日 星期一 · 歲次丙午年 七月初五"
-            textSize = 12.5f
+            text = "8月31日 星期一 · 農曆七月十九"
+            textSize = 12f
             alpha = 0.72f
             setTextColor(Color.parseColor("#8A99AD"))
             typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
@@ -520,23 +521,24 @@ class AodGlowActivity : ComponentActivity() {
         leftCol.addView(tvDateLunar)
         rowContent.addView(leftCol)
 
-        // Right Column (Expanded vivo Music Player Card)
+        // Right Column (Music Card + Spaced Big Lyrics Card)
         val rightCol = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
             layoutParams = LinearLayout.LayoutParams(
                 0,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
-                1.1f
+                1.15f
             )
         }
         val mCard = createVivoStyleMusicCard(density, isLandscape = true)
+        val lCard = createBigLyricsCard(density, isLandscape = true)
         rightCol.addView(mCard)
+        rightCol.addView(lCard)
         rowContent.addView(rightCol)
 
         rootLinear.addView(rowContent)
 
-        // Bottom Clean Unlock Indicator (Only 向上解鎖)
         val tvUnlock = TextView(this).apply {
             text = "向上解鎖"
             textSize = 11f
@@ -556,7 +558,8 @@ class AodGlowActivity : ComponentActivity() {
     }
 
     /**
-     * vivo OriginOS Style Music Card (Title, Artist/Album, Progress Bar, Shuffle/Prev/Play/Next/Repeat)
+     * Card 1: Pure Music Info & Realtime Progress Bar
+     * Horizontal Row: Left = Song Title (Bold), Right = Artist (Gray).
      */
     private fun createVivoStyleMusicCard(density: Float, isLandscape: Boolean): LinearLayout {
         musicCard = LinearLayout(this).apply {
@@ -564,23 +567,19 @@ class AodGlowActivity : ComponentActivity() {
             gravity = Gravity.CENTER_HORIZONTAL
             val bg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
-                cornerRadius = 20 * density
+                cornerRadius = 18 * density
                 setColor(Color.parseColor("#0B0C10"))
-                setStroke((1 * density).toInt(), Color.parseColor("#1A1D26"))
+                setStroke((1 * density).toInt(), Color.parseColor("#181A22"))
             }
             background = bg
             setPadding((16 * density).toInt(), (12 * density).toInt(), (16 * density).toInt(), (12 * density).toInt())
             layoutParams = LinearLayout.LayoutParams(
-                (if (isLandscape) 330 * density else 320 * density).toInt(),
+                (if (isLandscape) 360 * density else 330 * density).toInt(),
                 LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply {
-                if (!isLandscape) {
-                    bottomMargin = (16 * density).toInt()
-                }
-            }
+            )
         }
 
-        // Row 1: Music note icon + Song title & Artist + Equalizer bars
+        // Row 1: Horizontal Song Title (Left) + Artist (Right)
         val headerRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -588,24 +587,18 @@ class AodGlowActivity : ComponentActivity() {
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply {
-                bottomMargin = (10 * density).toInt()
+                bottomMargin = (6 * density).toInt()
             }
         }
 
-        val musicIcon = TextView(this).apply {
-            text = "🎧"
-            textSize = 16f
-            alpha = 0.85f
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply {
-                rightMargin = (10 * density).toInt()
-            }
-        }
-
-        val textCol = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
+        tvMusicTitle = TextView(this).apply {
+            text = "手機音效氣氛燈"
+            textSize = 15.5f
+            alpha = 0.95f
+            setTextColor(Color.parseColor("#E2E8F0"))
+            typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.END
             layoutParams = LinearLayout.LayoutParams(
                 0,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
@@ -613,77 +606,38 @@ class AodGlowActivity : ComponentActivity() {
             )
         }
 
-        tvMusicTitle = TextView(this).apply {
-            text = "手機音效氣氛燈"
-            textSize = 14f
-            alpha = 0.88f
-            setTextColor(Color.parseColor("#E2E8F0"))
-            typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
-            maxLines = 1
-            ellipsize = android.text.TextUtils.TruncateAt.END
-        }
-
         tvMusicArtist = TextView(this).apply {
             text = "音樂律動氣氛燈"
-            textSize = 11.5f
-            alpha = 0.65f
-            setTextColor(Color.parseColor("#717E8E"))
+            textSize = 12.5f
+            alpha = 0.70f
+            setTextColor(Color.parseColor("#8A99AD"))
             maxLines = 1
             ellipsize = android.text.TextUtils.TruncateAt.END
-        }
-        textCol.addView(tvMusicTitle)
-        textCol.addView(tvMusicArtist)
-
-        // Equalizer bouncing bars
-        val eqRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
+            gravity = Gravity.END
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
-                (14 * density).toInt()
+                LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply {
-                leftMargin = (8 * density).toInt()
+                leftMargin = (10 * density).toInt()
             }
         }
-
-        musicEqBars = Array(4) { idx ->
-            View(this).apply {
-                val barBg = GradientDrawable().apply {
-                    shape = GradientDrawable.RECTANGLE
-                    cornerRadius = 2 * density
-                    setColor(if (idx % 2 == 0) Color.parseColor("#00F5FF") else Color.parseColor("#FF007F"))
-                }
-                background = barBg
-                alpha = 0.75f
-                layoutParams = LinearLayout.LayoutParams(
-                    (2.5f * density).toInt(),
-                    (6 * density).toInt()
-                ).apply {
-                    leftMargin = (2 * density).toInt()
-                }
-            }.also { eqRow.addView(it) }
-        }
-
-        headerRow.addView(musicIcon)
-        headerRow.addView(textCol)
-        headerRow.addView(eqRow)
+        headerRow.addView(tvMusicTitle)
+        headerRow.addView(tvMusicArtist)
         musicCard?.addView(headerRow)
 
-        // Row 2: Realtime Seek/Progress Bar (00:24 ----------- 02:24)
+        // Row 2: Realtime Progress Bar (00:24 ----------- 03:40)
         val progressRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply {
-                bottomMargin = (10 * density).toInt()
-            }
+            )
         }
 
         tvTimeElapsed = TextView(this).apply {
             text = "00:00"
-            textSize = 10f
+            textSize = 10.5f
             alpha = 0.60f
             setTextColor(Color.parseColor("#8E8E93"))
             layoutParams = LinearLayout.LayoutParams(
@@ -764,7 +718,7 @@ class AodGlowActivity : ComponentActivity() {
 
         tvTimeDuration = TextView(this).apply {
             text = "00:00"
-            textSize = 10f
+            textSize = 10.5f
             alpha = 0.60f
             setTextColor(Color.parseColor("#8E8E93"))
             layoutParams = LinearLayout.LayoutParams(
@@ -778,85 +732,88 @@ class AodGlowActivity : ComponentActivity() {
         progressRow.addView(tvTimeDuration)
         musicCard?.addView(progressRow)
 
-        // Row 3: Control Buttons (🔀, ⏮, ▶/⏸, ⏭, 🔁)
-        val controlRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
+        return musicCard!!
+    }
+
+    /**
+     * Card 2: 🎤 Separate Big Dynamic Synced Lyrics Card
+     * (Spaced downward to lower-center zone, pure white active text color)
+     */
+    private fun createBigLyricsCard(density: Float, isLandscape: Boolean): LinearLayout {
+        lyricsCard = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
+            val lyricsBg = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = 18 * density
+                setColor(Color.parseColor("#060709"))
+                setStroke((1 * density).toInt(), Color.parseColor("#151720"))
+            }
+            background = lyricsBg
+            setPadding((18 * density).toInt(), (14 * density).toInt(), (18 * density).toInt(), (14 * density).toInt())
+            layoutParams = LinearLayout.LayoutParams(
+                (if (isLandscape) 360 * density else 330 * density).toInt(),
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = (68 * density).toInt() // Spaced down to lower-middle zone!
+            }
+        }
+
+        tvLyricPrev = TextView(this).apply {
+            text = ""
+            textSize = 14f
+            alpha = 0.45f
+            setTextColor(Color.parseColor("#717E8E"))
+            gravity = Gravity.CENTER
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.END
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-        }
-
-        fun createControlBtn(iconText: String, isMain: Boolean = false, isToggle: Boolean = false): TextView {
-            return TextView(this).apply {
-                text = iconText
-                textSize = if (isMain) 16f else (if (isToggle) 14f else 13f)
-                gravity = Gravity.CENTER
-                setTextColor(if (isMain) Color.parseColor("#00F5FF") else Color.parseColor("#A0AEC0"))
-                alpha = if (isMain) 0.90f else 0.65f
-                isClickable = true
-                isFocusable = true
-
-                val btnBg = GradientDrawable().apply {
-                    shape = GradientDrawable.OVAL
-                    setColor(if (isMain) Color.parseColor("#151822") else Color.parseColor("#0F1117"))
-                    setStroke((1 * density).toInt(), if (isMain) Color.parseColor("#252A38") else Color.parseColor("#161820"))
-                }
-                val ripple = RippleDrawable(
-                    ColorStateList.valueOf(Color.parseColor("#3300F5FF")),
-                    btnBg,
-                    null
-                )
-                background = ripple
-
-                val sizeDp = if (isMain) 36 * density else 28 * density
-                layoutParams = LinearLayout.LayoutParams(sizeDp.toInt(), sizeDp.toInt()).apply {
-                    val marginDp = if (isLandscape) 14 * density else 9 * density
-                    leftMargin = marginDp.toInt()
-                    rightMargin = marginDp.toInt()
-                }
+            ).apply {
+                bottomMargin = (4 * density).toInt()
             }
         }
 
-        btnShuffle = createControlBtn("🔀", isToggle = true).apply {
-            setOnClickListener {
-                MediaPlaybackDetector.toggleShuffle(this@AodGlowActivity)
+        tvLyricActive = TextView(this).apply {
+            text = "🎵 正在載入歌詞..."
+            textSize = 19.5f
+            alpha = 0.98f
+            setTextColor(Color.parseColor("#FFFFFF")) // Pure White!
+            typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
+            gravity = Gravity.CENTER
+            maxLines = 2
+            ellipsize = android.text.TextUtils.TruncateAt.END
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = (4 * density).toInt()
+                bottomMargin = (4 * density).toInt()
             }
         }
 
-        btnPrev = createControlBtn("⏮").apply {
-            setOnClickListener {
-                MediaPlaybackDetector.skipToPrevious(this@AodGlowActivity)
+        tvLyricNext = TextView(this).apply {
+            text = ""
+            textSize = 14f
+            alpha = 0.45f
+            setTextColor(Color.parseColor("#717E8E"))
+            gravity = Gravity.CENTER
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.END
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = (4 * density).toInt()
             }
         }
 
-        btnPlayPause = createControlBtn("▶", isMain = true).apply {
-            setOnClickListener {
-                MediaPlaybackDetector.togglePlayPause(this@AodGlowActivity)
-            }
-        }
+        lyricsCard?.addView(tvLyricPrev)
+        lyricsCard?.addView(tvLyricActive)
+        lyricsCard?.addView(tvLyricNext)
 
-        btnNext = createControlBtn("⏭").apply {
-            setOnClickListener {
-                MediaPlaybackDetector.skipToNext(this@AodGlowActivity)
-            }
-        }
-
-        btnRepeat = createControlBtn("🔁", isToggle = true).apply {
-            setOnClickListener {
-                MediaPlaybackDetector.toggleRepeat(this@AodGlowActivity)
-            }
-        }
-
-        controlRow.addView(btnShuffle)
-        controlRow.addView(btnPrev)
-        controlRow.addView(btnPlayPause)
-        controlRow.addView(btnNext)
-        controlRow.addView(btnRepeat)
-        musicCard?.addView(controlRow)
-
-        return musicCard!!
+        return lyricsCard!!
     }
 
     private fun updateTimeAndDate() {
@@ -870,51 +827,40 @@ class AodGlowActivity : ComponentActivity() {
         val monthDayFormat = SimpleDateFormat("M'月'd'日' E", Locale.TRADITIONAL_CHINESE)
         val gregorianStr = monthDayFormat.format(cal.time)
 
-        // Chinese Lunar Calendar (格式：歲次丙午年 七月初五)
+        // Chinese Lunar Calendar (格式：8月31日 星期一 · 農曆七月十九)
         val lunar = LunarCalendarUtil.getLunarDate(cal)
         tvDateLunar?.text = "$gregorianStr · ${lunar.formatted}"
     }
 
     private fun updateMusicState(track: MediaTrackInfo) {
         lastTrackInfo = track
-        if (track.isPlaying && track.title.isNotEmpty()) {
+        if (track.title.isNotEmpty()) {
             tvMusicTitle?.text = track.title
-            val subtitle = if (track.album.isNotEmpty()) "${track.artist} · ${track.album}" else track.artist.ifEmpty { "音樂播放中" }
+            val subtitle = track.artist.ifEmpty { "音樂播放中" }
             tvMusicArtist?.text = subtitle
-            btnPlayPause?.text = "⏸"
             musicCard?.visibility = View.VISIBLE
+            lyricsCard?.visibility = View.VISIBLE
 
-            handler.removeCallbacks(progressRunnable)
-            handler.post(progressRunnable)
+            // Track Switch: Immediately flush & prefetch if track title changed
+            if (track.title != lastObservedTitle) {
+                lastObservedTitle = track.title
+                lastActiveLyric = ""
+                tvLyricPrev?.text = ""
+                tvLyricActive?.text = "🎵 正在載入歌詞..."
+                tvLyricNext?.text = ""
+                tvLyricActive?.setTextColor(Color.parseColor("#FFFFFF"))
+                LyricsEngine.fetchLyrics(track.title, track.artist)
+            }
+
+            if (track.isPlaying) {
+                handler.removeCallbacks(progressRunnable)
+                handler.post(progressRunnable)
+            }
         } else {
-            tvMusicTitle?.text = if (track.title.isNotEmpty()) track.title else "手機音效氣氛燈"
-            val subtitle = if (track.album.isNotEmpty()) "${track.artist} · ${track.album}" else if (track.artist.isNotEmpty()) track.artist else "音樂律動氣氛燈"
-            tvMusicArtist?.text = subtitle
-            btnPlayPause?.text = "▶"
-        }
-
-        // Update Shuffle Toggle State
-        val isShuffleOn = track.shuffleMode == MediaPlaybackDetector.SHUFFLE_ALL
-        btnShuffle?.setTextColor(if (isShuffleOn) Color.parseColor("#00F5FF") else Color.parseColor("#A0AEC0"))
-        btnShuffle?.alpha = if (isShuffleOn) 0.95f else 0.50f
-
-        // Update Repeat Toggle State
-        when (track.repeatMode) {
-            MediaPlaybackDetector.REPEAT_ONE -> {
-                btnRepeat?.text = "🔂"
-                btnRepeat?.setTextColor(Color.parseColor("#00F5FF"))
-                btnRepeat?.alpha = 0.95f
-            }
-            MediaPlaybackDetector.REPEAT_ALL -> {
-                btnRepeat?.text = "🔁"
-                btnRepeat?.setTextColor(Color.parseColor("#00F5FF"))
-                btnRepeat?.alpha = 0.95f
-            }
-            else -> {
-                btnRepeat?.text = "🔁"
-                btnRepeat?.setTextColor(Color.parseColor("#A0AEC0"))
-                btnRepeat?.alpha = 0.50f
-            }
+            tvMusicTitle?.text = "手機音效氣氛燈"
+            tvMusicArtist?.text = "音樂律動氣氛燈"
+            lastObservedTitle = ""
+            lastActiveLyric = ""
         }
 
         updateProgressTime()
@@ -938,6 +884,53 @@ class AodGlowActivity : ComponentActivity() {
                 musicSeekBar?.progress = 0
             }
         }
+
+        // Update Dynamic Synced Lyrics
+        updateLyrics(cur)
+    }
+
+    private fun updateLyrics(curMs: Long) {
+        val lyricsState = LyricsEngine.lyricsState.value
+        if (lyricsState.isLoading) {
+            tvLyricPrev?.text = ""
+            tvLyricActive?.text = "🎵 正在搜尋歌詞..."
+            tvLyricNext?.text = ""
+            tvLyricActive?.setTextColor(Color.parseColor("#A0AEC0"))
+            lastActiveLyric = ""
+        } else if (lyricsState.isFound && lyricsState.lines.isNotEmpty()) {
+            val (prev, active, next) = LyricsEngine.getActiveLines(curMs)
+            val currentText = if (active.isNotEmpty()) active else (if (lastTrackInfo.title.isNotEmpty()) lastTrackInfo.title else "🎵 音樂律動中")
+
+            if (currentText != lastActiveLyric) {
+                lastActiveLyric = currentText
+                // Silky Smooth Text Transition Animation
+                tvLyricActive?.animate()
+                    ?.alpha(0f)
+                    ?.translationY(-6f)
+                    ?.setDuration(90)
+                    ?.withEndAction {
+                        tvLyricPrev?.text = prev
+                        tvLyricActive?.text = currentText
+                        tvLyricNext?.text = next
+                        tvLyricActive?.translationY = 6f
+                        tvLyricActive?.animate()
+                            ?.alpha(1.0f)
+                            ?.translationY(0f)
+                            ?.setDuration(120)
+                            ?.start()
+                    }?.start()
+            } else {
+                tvLyricPrev?.text = prev
+                tvLyricNext?.text = next
+            }
+            tvLyricActive?.setTextColor(Color.parseColor("#FFFFFF")) // Pure White
+        } else {
+            tvLyricPrev?.text = ""
+            tvLyricActive?.text = if (lastTrackInfo.title.isNotEmpty()) "🎵 ${lastTrackInfo.title}" else "🎵 純音樂律動中"
+            tvLyricNext?.text = ""
+            tvLyricActive?.setTextColor(Color.parseColor("#FFFFFF"))
+            lastActiveLyric = ""
+        }
     }
 
     private fun formatTime(ms: Long): String {
@@ -948,26 +941,8 @@ class AodGlowActivity : ComponentActivity() {
         return String.format(Locale.getDefault(), "%02d:%02d", min, sec)
     }
 
-    private fun updateEqualizerHeights(features: AudioFeatures) {
-        val density = resources.displayMetrics.density
-        val bands = features.spectrumBands
-        for (i in musicEqBars.indices) {
-            val energy = when (i) {
-                0 -> features.bassEnergy
-                1 -> if (bands.isNotEmpty()) bands[3] else features.midEnergy
-                2 -> if (bands.isNotEmpty()) bands[10] else features.midEnergy
-                else -> features.trebleEnergy
-            }
-            val heightDp = (4 + energy * 10).coerceIn(3f, 14f)
-            val lp = musicEqBars[i].layoutParams
-            lp.height = (heightDp * density).toInt()
-            musicEqBars[i].layoutParams = lp
-        }
-    }
-
     /**
      * Touch Handling: Pure Swipe UP Only.
-     * Buttons and Seekbar can be interacted with directly. When dragged upward, AOD translates and unlocks.
      */
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
         if (velocityTracker == null) {
@@ -982,37 +957,29 @@ class AodGlowActivity : ComponentActivity() {
             }
             MotionEvent.ACTION_MOVE -> {
                 val dy = ev.rawY - touchDownY
-                if (!isDragging) {
-                    if (abs(dy) > touchSlop) {
-                        isDragging = true
-                    }
+                if (dy < -touchSlop && !isDragging) {
+                    isDragging = true
                 }
-
-                if (isDragging) {
-                    val clampedDy = if (dy < 0) dy else dy * 0.15f
-                    contentLayer.translationY = clampedDy
-
-                    val screenH = resources.displayMetrics.heightPixels.toFloat()
-                    val progress = (abs(clampedDy) / (screenH * 0.32f)).coerceIn(0f, 1f)
-
-                    glowTrackView.alpha = (1.0f - progress * 1.8f).coerceIn(0f, 1f)
-                    contentLayer.alpha = (1.0f - progress * 0.75f).coerceIn(0.2f, 1.0f)
-                    rootContainer.alpha = (1.0f - progress * 0.40f).coerceIn(0.4f, 1.0f)
+                if (isDragging && dy < 0) {
+                    contentLayer.translationY = dy * 0.75f
+                    val progress = (-dy / (resources.displayMetrics.heightPixels * 0.35f)).coerceIn(0f, 1f)
+                    contentLayer.alpha = 1.0f - progress * 0.5f
                     return true
                 }
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 if (isDragging) {
-                    velocityTracker?.computeCurrentVelocity(1000)
-                    val vy = velocityTracker?.yVelocity ?: 0f
                     val dy = ev.rawY - touchDownY
-                    val screenH = resources.displayMetrics.heightPixels.toFloat()
+                    velocityTracker?.computeCurrentVelocity(1000)
+                    val yVelocity = velocityTracker?.yVelocity ?: 0f
 
-                    val isSwipeUpDismiss = (dy < -screenH * 0.14f) || (vy < -650f)
-                    if (isSwipeUpDismiss) {
+                    val screenHeight = resources.displayMetrics.heightPixels
+                    val shouldDismiss = dy < -(screenHeight * 0.18f) || yVelocity < -1200f
+
+                    if (shouldDismiss) {
                         dismissWithAnimation()
                     } else {
-                        resetContentPosition()
+                        snapBack()
                     }
                     isDragging = false
                     return true
@@ -1022,41 +989,28 @@ class AodGlowActivity : ComponentActivity() {
         return super.dispatchTouchEvent(ev)
     }
 
-    private fun dismissWithAnimation() {
-        val screenH = resources.displayMetrics.heightPixels.toFloat()
-        val targetY = -screenH * 0.95f
-
-        glowTrackView.animate().alpha(0f).setDuration(160).start()
-        rootContainer.animate().alpha(0f).setDuration(220).start()
-
+    private fun snapBack() {
         contentLayer.animate()
-            .translationY(targetY)
+            .translationY(0f)
+            .alpha(1.0f)
+            .setDuration(240)
+            .setInterpolator(OvershootInterpolator(1.2f))
+            .start()
+    }
+
+    private fun dismissWithAnimation() {
+        val screenHeight = resources.displayMetrics.heightPixels.toFloat()
+        contentLayer.animate()
+            .translationY(-screenHeight)
             .alpha(0f)
             .setDuration(220)
             .setInterpolator(DecelerateInterpolator())
             .setListener(object : AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: Animator) {
                     finish()
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                        overrideActivityTransition(OVERRIDE_TRANSITION_CLOSE, 0, android.R.anim.fade_out)
-                    } else {
-                        @Suppress("DEPRECATION")
-                        overridePendingTransition(0, android.R.anim.fade_out)
-                    }
+                    overridePendingTransition(0, 0)
                 }
             })
-            .start()
-    }
-
-    private fun resetContentPosition() {
-        glowTrackView.animate().alpha(1.0f).setDuration(250).start()
-        rootContainer.animate().alpha(1.0f).setDuration(250).start()
-        contentLayer.animate()
-            .translationY(0f)
-            .alpha(1.0f)
-            .setDuration(250)
-            .setInterpolator(OvershootInterpolator(1.2f))
-            .setListener(null)
             .start()
     }
 
@@ -1068,17 +1022,19 @@ class AodGlowActivity : ComponentActivity() {
                         glowTrackView.updateConfig(config)
                     }
                 }
-
                 launch {
                     audioManager.audioFeatures.collectLatest { features ->
                         glowTrackView.updateAudio(features)
-                        updateEqualizerHeights(features)
                     }
                 }
-
                 launch {
                     MediaPlaybackDetector.playbackStateFlow.collectLatest { track ->
                         updateMusicState(track)
+                    }
+                }
+                launch {
+                    LyricsEngine.lyricsState.collectLatest {
+                        updateProgressTime()
                     }
                 }
             }

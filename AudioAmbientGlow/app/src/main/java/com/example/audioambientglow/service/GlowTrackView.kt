@@ -1,4 +1,4 @@
-package com.example.audioambientglow.service
+﻿package com.example.audioambientglow.service
 
 import android.content.Context
 import android.graphics.Canvas
@@ -16,6 +16,7 @@ import com.example.audioambientglow.engine.TrackGeometry
 /**
  * 144Hz Low-Latency Hardware GPU Mesh Track Renderer
  * Renders the pure border glow along the phone screen bezels.
+ * Zero hard wire line, pure Gaussian inward bloom, 100% clean silence shutoff.
  */
 class GlowTrackView @JvmOverloads constructor(
     context: Context,
@@ -29,12 +30,6 @@ class GlowTrackView @JvmOverloads constructor(
 
     private var trackGeometry: TrackGeometry? = null
 
-    private val corePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        style = Paint.Style.STROKE
-        strokeCap = Paint.Cap.ROUND
-        strokeJoin = Paint.Join.ROUND
-    }
-
     private val meshPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         isDither = true
         isFilterBitmap = true
@@ -44,9 +39,9 @@ class GlowTrackView @JvmOverloads constructor(
     private var lastFrameTimeNanos: Long = 0
     private var isAodFullscreen = false
 
-    // Pre-allocated arrays for GPU drawVertices to avoid GC allocations at 144Hz
+    // Pre-allocated arrays for GPU drawVertices (6 concentric micro-rings for pure Gaussian feathering)
     private val numSegments = 160
-    private val numRings = 4 // Outer(0), Mid1(0.28), Mid2(0.62), Inner(1.0)
+    private val numRings = 6 // Outer(0.0), Ring1(0.15), Ring2(0.35), Ring3(0.60), Ring4(0.85), Inner(1.0)
     private val totalVertices = (numSegments + 1) * numRings
     private val vertexCoords = FloatArray(totalVertices * 2)
     private val vertexColors = IntArray(totalVertices)
@@ -168,9 +163,9 @@ class GlowTrackView @JvmOverloads constructor(
             config = config
         )
 
-        if (latestFrameState.isSilent && !isAodFullscreen) {
+        if (latestFrameState.isSilent) {
             stopRenderLoop()
-            postInvalidateOnAnimation()
+            invalidate()
             return
         }
 
@@ -185,6 +180,12 @@ class GlowTrackView @JvmOverloads constructor(
         val h = height.toFloat()
         if (w <= 0 || h <= 0) return
 
+        val state = latestFrameState
+        // 🛑 Total Silence Clean Shutoff: When paused or silent, draw 0 graphics
+        if (state.brightness <= 0.001f) {
+            return
+        }
+
         val density = resources.displayMetrics.density
         if (trackGeometry == null || trackGeometry?.width != w || trackGeometry?.height != h) {
             val cornerRadiusPx = config.cornerRadiusDp * density
@@ -193,25 +194,21 @@ class GlowTrackView @JvmOverloads constructor(
 
         val geometry = trackGeometry ?: return
 
-        val state = latestFrameState
-        if (state.brightness <= 0.001f && !isAodFullscreen) return
-
-        val brightness = if (isAodFullscreen) state.brightness.coerceAtLeast(0.45f) else state.brightness
+        val brightness = state.brightness
         val thicknessPx = config.glowThicknessDp * density
-        val featheringPx = config.bloomFeatheringDp * density
+        val featheringPx = (config.bloomFeatheringDp * density).coerceAtLeast(18f * density)
         val totalDepthPx = thicknessPx + featheringPx
 
         val colors = ColorPaletteEngine.getPresetColors(config.themePreset, config)
 
-        // Save canvas for anti-burn-in pixel shift
         canvas.save()
         if (config.antiBurnInEnabled) {
             canvas.translate(state.pixelShiftX, state.pixelShiftY)
         }
 
-        // 1. Build Continuous Hardware GPU Mesh (Zero Stepping / Gouraud Shaded Triangles)
-        val ringDepths = floatArrayOf(0.0f, 0.28f, 0.62f, 1.0f)
-        val ringAlphas = floatArrayOf(1.0f, 0.58f, 0.18f, 0.0f)
+        // 🌟 6-Ring Pure Gaussian Radial Falloff Mesh (Zero hard wire line, perfectly feathered)
+        val ringDepths = floatArrayOf(0.0f, 0.15f, 0.35f, 0.60f, 0.85f, 1.0f)
+        val ringAlphas = floatArrayOf(1.0f, 0.82f, 0.52f, 0.24f, 0.06f, 0.0f)
 
         for (r in 0 until numRings) {
             val depthFraction = ringDepths[r]
@@ -242,7 +239,7 @@ class GlowTrackView @JvmOverloads constructor(
             }
         }
 
-        // Draw GPU hardware-interpolated mesh
+        // Draw GPU hardware-interpolated smooth mesh
         try {
             canvas.drawVertices(
                 Canvas.VertexMode.TRIANGLES,
@@ -260,28 +257,6 @@ class GlowTrackView @JvmOverloads constructor(
             )
         } catch (e: Throwable) {
             // Fallback
-        }
-
-        // 2. Render Crisp Outer Neon Core Line with zero allocation drawLine
-        val coreStrokeWidth = (2.2f * density).coerceAtLeast(1.5f)
-        corePaint.strokeWidth = coreStrokeWidth
-
-        for (i in 0 until numSegments) {
-            val s1 = i.toFloat() / numSegments.toFloat()
-            val s2 = (i + 1).toFloat() / numSegments.toFloat()
-            val p1 = geometry.getPointAndNormal(s1)
-            val p2 = geometry.getPointAndNormal(s2)
-
-            val pureColor = ColorPaletteEngine.evaluateColor(
-                (s1 + s2) * 0.5f,
-                state.phase,
-                colors,
-                state.dynamicHueShift
-            )
-
-            val coreAlpha = (brightness * 255f).toInt().coerceIn(0, 255)
-            corePaint.color = (coreAlpha shl 24) or (ColorPaletteEngine.red(pureColor) shl 16) or (ColorPaletteEngine.green(pureColor) shl 8) or ColorPaletteEngine.blue(pureColor)
-            canvas.drawLine(p1.x, p1.y, p2.x, p2.y, corePaint)
         }
 
         canvas.restore()
