@@ -1,12 +1,15 @@
-﻿package com.example.audioambientglow.lyrics
+package com.example.audioambientglow.lyrics
 
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -103,7 +106,7 @@ object LyricsEngine {
             return
         }
 
-        val queryKey = "_"
+        val queryKey = "${cleanTitle}_${cleanArtist}"
         if (queryKey == _lyricsState.value.queryKey && _lyricsState.value.lines.isNotEmpty()) {
             return
         }
@@ -125,7 +128,7 @@ object LyricsEngine {
             return
         }
 
-        // Reset state to loading with empty lines immediately
+        // Reset state to loading with empty lines immediately (0ms instant flush)
         _lyricsState.value = LyricsState(
             queryKey = queryKey,
             cleanTitle = cleanTitle,
@@ -151,7 +154,7 @@ object LyricsEngine {
                         isLoading = false,
                         isFound = true
                     )
-                    Log.i(TAG, "Successfully loaded  lyrics lines for '' by ''")
+                    Log.i(TAG, "Successfully loaded ${result.size} lyrics lines for '$cleanTitle' by '$cleanArtist'")
                 } else {
                     _lyricsState.value = LyricsState(
                         queryKey = queryKey,
@@ -161,64 +164,72 @@ object LyricsEngine {
                         isLoading = false,
                         isFound = false
                     )
-                    Log.d(TAG, "No lyrics found for '' ()")
+                    Log.d(TAG, "No lyrics found for '$cleanTitle' ($cleanArtist)")
                 }
             }
         }
     }
 
-    private fun fetchFromLrclib(cleanTitle: String, cleanArtist: String, rawTitle: String): List<LyricLine> {
+    private suspend fun fetchFromLrclib(cleanTitle: String, cleanArtist: String, rawTitle: String): List<LyricLine> = withContext(Dispatchers.IO) {
         try {
-            // Strategy 1: Direct Exact Match if artist is known
+            val tasks = mutableListOf<Deferred<List<LyricLine>>>()
+
+            // Strategy 1: Direct Exact Match if artist is known (Fastest & most accurate)
             if (cleanArtist.isNotEmpty()) {
-                val exactUrl = "https://lrclib.net/api/get?track_name=" + URLEncoder.encode(cleanTitle, "UTF-8") + "&artist_name=" + URLEncoder.encode(cleanArtist, "UTF-8")
-                val directJson = httpGet(exactUrl)
-                if (directJson != null) {
-                    val parsed = parseLrcFromJson(directJson)
-                    if (parsed.isNotEmpty()) return parsed
-                }
+                tasks.add(async {
+                    val exactUrl = "https://lrclib.net/api/get?track_name=" + URLEncoder.encode(cleanTitle, "UTF-8") + "&artist_name=" + URLEncoder.encode(cleanArtist, "UTF-8")
+                    val directJson = httpGet(exactUrl)
+                    if (directJson != null) parseLrcFromJson(directJson) else emptyList()
+                })
             }
 
-            // Strategy 2: Search with Clean Title + Artist
-            val q1 = if (cleanArtist.isNotEmpty()) " " else cleanTitle
-            val searchUrl1 = "https://lrclib.net/api/search?q=" + URLEncoder.encode(q1, "UTF-8")
-            val searchJson1 = httpGet(searchUrl1)
-            if (searchJson1 != null) {
-                val parsed = extractBestFromSearchArray(searchJson1)
-                if (parsed.isNotEmpty()) return parsed
-            }
+            // Strategy 2: Search with Clean Title + Clean Artist
+            val q1 = if (cleanArtist.isNotEmpty()) "$cleanTitle $cleanArtist" else cleanTitle
+            tasks.add(async {
+                val searchUrl1 = "https://lrclib.net/api/search?q=" + URLEncoder.encode(q1, "UTF-8")
+                val searchJson1 = httpGet(searchUrl1)
+                if (searchJson1 != null) extractBestFromSearchArray(searchJson1) else emptyList()
+            })
 
-            // Strategy 3: Search with Artist + Title reversed
+            // Strategy 3: Search with Clean Title alone (fallback)
             if (cleanArtist.isNotEmpty()) {
-                val qReversed = " "
-                val searchUrlRev = "https://lrclib.net/api/search?q=" + URLEncoder.encode(qReversed, "UTF-8")
-                val searchJsonRev = httpGet(searchUrlRev)
-                if (searchJsonRev != null) {
-                    val parsed = extractBestFromSearchArray(searchJsonRev)
-                    if (parsed.isNotEmpty()) return parsed
-                }
+                tasks.add(async {
+                    val searchUrl2 = "https://lrclib.net/api/search?q=" + URLEncoder.encode(cleanTitle, "UTF-8")
+                    val searchJson2 = httpGet(searchUrl2)
+                    if (searchJson2 != null) extractBestFromSearchArray(searchJson2) else emptyList()
+                })
             }
 
-            // Strategy 4: Search with Clean Title alone
-            val searchUrl2 = "https://lrclib.net/api/search?q=" + URLEncoder.encode(cleanTitle, "UTF-8")
-            val searchJson2 = httpGet(searchUrl2)
-            if (searchJson2 != null) {
-                val parsed = extractBestFromSearchArray(searchJson2)
-                if (parsed.isNotEmpty()) return parsed
-            }
-
-            // Strategy 5: Raw Title Clean Search
+            // Strategy 4: Raw Title Clean Search (if distinct)
             val rawClean = rawTitle.replace(Regex("""['"“”「」『』]"""), " ").replace(Regex("""\s+"""), " ").trim()
-            val searchUrl3 = "https://lrclib.net/api/search?q=" + URLEncoder.encode(rawClean, "UTF-8")
-            val searchJson3 = httpGet(searchUrl3)
-            if (searchJson3 != null) {
-                val parsed = extractBestFromSearchArray(searchJson3)
-                if (parsed.isNotEmpty()) return parsed
+            if (rawClean.isNotEmpty() && rawClean != cleanTitle && rawClean != q1) {
+                tasks.add(async {
+                    val searchUrl3 = "https://lrclib.net/api/search?q=" + URLEncoder.encode(rawClean, "UTF-8")
+                    val searchJson3 = httpGet(searchUrl3)
+                    if (searchJson3 != null) extractBestFromSearchArray(searchJson3) else emptyList()
+                })
+            }
+
+            // Evaluate in priority order and cancel remaining once matched
+            for (task in tasks) {
+                try {
+                    val res = task.await()
+                    if (res.isNotEmpty()) {
+                        tasks.forEach { other ->
+                            if (other != task && other.isActive) {
+                                other.cancel()
+                            }
+                        }
+                        return@withContext res
+                    }
+                } catch (e: Exception) {
+                    // Ignore single task cancellation or timeout
+                }
             }
         } catch (e: Exception) {
-            Log.w(TAG, "Error fetching lyrics from LRCLIB: ")
+            Log.w(TAG, "Error fetching lyrics from LRCLIB: ${e.message}")
         }
-        return emptyList()
+        return@withContext emptyList()
     }
 
     private fun extractBestFromSearchArray(jsonStr: String): List<LyricLine> {
@@ -272,6 +283,13 @@ object LyricsEngine {
         val result = mutableListOf<LyricLine>()
         val lines = lrcText.split("\n")
 
+        // Parse optional [offset:+/-xxx] header
+        var headerOffsetMs = 0L
+        val offsetMatcher = Pattern.compile("""\[offset:\s*([+-]?\d+)\s*\]""", Pattern.CASE_INSENSITIVE).matcher(lrcText)
+        if (offsetMatcher.find()) {
+            headerOffsetMs = offsetMatcher.group(1)?.toLongOrNull() ?: 0L
+        }
+
         for (line in lines) {
             val trimmed = line.trim()
             if (trimmed.isEmpty()) continue
@@ -285,8 +303,8 @@ object LyricsEngine {
                 val sec = matcher.group(2)?.toLongOrNull() ?: 0L
                 val msStr = matcher.group(3) ?: "0"
                 val ms = msStr.padEnd(3, '0').take(3).toLongOrNull() ?: 0L
-                val totalMs = (min * 60 + sec) * 1000 + ms
-                times.add(totalMs)
+                val totalMs = ((min * 60 + sec) * 1000 + ms) + headerOffsetMs
+                times.add(totalMs.coerceAtLeast(0L))
                 lastEnd = matcher.end()
             }
 
@@ -323,23 +341,30 @@ object LyricsEngine {
         return list
     }
 
-    fun getActiveLines(positionMs: Long): Triple<String, String, String> {
+    /**
+     * Finds active lyric lines with acoustic latency compensation (-300ms)
+     * When song is in intro before line 0 starts, active lyric is empty (NOT premature line 0!).
+     */
+    fun getActiveLines(positionMs: Long, offsetMs: Long = -300L): Triple<String, String, String> {
         val lines = _lyricsState.value.lines
         if (lines.isEmpty()) {
             return Triple("", "", "")
         }
 
+        val adjustedPos = (positionMs + offsetMs).coerceAtLeast(0L)
         var activeIndex = -1
         for (i in lines.indices) {
-            if (positionMs >= lines[i].timeMs) {
+            if (adjustedPos >= lines[i].timeMs) {
                 activeIndex = i
             } else {
                 break
             }
         }
 
+        // Before the first line starts (e.g. Song Intro):
+        // Current active MUST be empty string so intro is not preempted by Line 0!
         if (activeIndex == -1) {
-            return Triple("", lines.firstOrNull()?.text ?: "", lines.getOrNull(1)?.text ?: "")
+            return Triple("", "", lines.firstOrNull()?.text ?: "")
         }
 
         val prev = if (activeIndex > 0) lines[activeIndex - 1].text else ""
@@ -355,8 +380,8 @@ object LyricsEngine {
             val url = URL(urlString)
             conn = (url.openConnection() as HttpURLConnection).apply {
                 requestMethod = "GET"
-                connectTimeout = 4000
-                readTimeout = 4000
+                connectTimeout = 2500
+                readTimeout = 2500
                 setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
                 setRequestProperty("Accept", "application/json")
             }

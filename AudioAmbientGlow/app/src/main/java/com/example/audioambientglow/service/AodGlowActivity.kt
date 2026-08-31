@@ -1,4 +1,4 @@
-﻿package com.example.audioambientglow.service
+package com.example.audioambientglow.service
 
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
@@ -72,11 +72,12 @@ class AodGlowActivity : ComponentActivity() {
     private var tvTimeDuration: TextView? = null
     private var musicSeekBar: SeekBar? = null
 
-    // 🎤 Dynamic Synced Lyrics Big Card (Pure White Active Line, Lower-Middle Spaced)
+    // 🎤 Dynamic Synced Lyrics Card (Pure Single-Line Active Focus - Dual-Buffer Pure White Glide)
     private var lyricsCard: LinearLayout? = null
-    private var tvLyricPrev: TextView? = null
-    private var tvLyricActive: TextView? = null
-    private var tvLyricNext: TextView? = null
+    private var activeContainer: FrameLayout? = null
+    private var tvActiveA: TextView? = null // Dual-Buffer Slot A (Pure White #FFFFFF, BOLD 20.5sp, alpha 1.0)
+    private var tvActiveB: TextView? = null // Dual-Buffer Slot B (Pure White #FFFFFF, BOLD 20.5sp, alpha 1.0)
+    private var activeSlotIndex = 0 // 0 = A is active, 1 = B is active
     private var lastActiveLyric = ""
     private var lastObservedTitle = ""
 
@@ -386,6 +387,16 @@ class AodGlowActivity : ComponentActivity() {
         val mCard = createVivoStyleMusicCard(density, isLandscape = false)
         centerLayout.addView(mCard)
 
+        // Mid Flexible Spacer (Spaces lyrics card gracefully down into the middle-to-lower center area)
+        val midSpacer = View(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                0,
+                0.85f // Pushes lyrics card gracefully down into the middle-lower golden zone!
+            )
+        }
+        centerLayout.addView(midSpacer)
+
         // 2. 🎤 Separate Big Dynamic Synced Lyrics Card (Spaced downward to lower-center zone)
         val lCard = createBigLyricsCard(density, isLandscape = false)
         centerLayout.addView(lCard)
@@ -430,8 +441,8 @@ class AodGlowActivity : ComponentActivity() {
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
             ).apply {
-                topMargin = (12 * density).toInt()
-                bottomMargin = (8 * density).toInt()
+                topMargin = (22 * density).toInt()
+                bottomMargin = (12 * density).toInt()
                 leftMargin = (24 * density).toInt()
                 rightMargin = (24 * density).toInt()
             }
@@ -454,7 +465,7 @@ class AodGlowActivity : ComponentActivity() {
             layoutParams = LinearLayout.LayoutParams(
                 0,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
-                0.85f
+                0.78f
             ).apply {
                 leftMargin = (8 * density).toInt()
                 rightMargin = (8 * density).toInt()
@@ -521,15 +532,17 @@ class AodGlowActivity : ComponentActivity() {
         leftCol.addView(tvDateLunar)
         rowContent.addView(leftCol)
 
-        // Right Column (Music Card + Spaced Big Lyrics Card)
+        // Right Column (Music Card + Fixed-Top Lyrics Card - Widened to the Left & Lowered from top edge)
         val rightCol = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
+            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL // Permanently anchor to top: 0 pixel vertical jumping!
             layoutParams = LinearLayout.LayoutParams(
                 0,
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                1.15f
-            )
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                1.45f
+            ).apply {
+                topMargin = (34 * density).toInt() // Lowered noticeably away from the top long edge!
+            }
         }
         val mCard = createVivoStyleMusicCard(density, isLandscape = true)
         val lCard = createBigLyricsCard(density, isLandscape = true)
@@ -565,16 +578,10 @@ class AodGlowActivity : ComponentActivity() {
         musicCard = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
-            val bg = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                cornerRadius = 18 * density
-                setColor(Color.parseColor("#0B0C10"))
-                setStroke((1 * density).toInt(), Color.parseColor("#181A22"))
-            }
-            background = bg
-            setPadding((16 * density).toInt(), (12 * density).toInt(), (16 * density).toInt(), (12 * density).toInt())
+            background = null
+            setPadding((12 * density).toInt(), (6 * density).toInt(), (12 * density).toInt(), (6 * density).toInt())
             layoutParams = LinearLayout.LayoutParams(
-                (if (isLandscape) 360 * density else 330 * density).toInt(),
+                (if (isLandscape) 440 * density else 350 * density).toInt(),
                 LinearLayout.LayoutParams.WRAP_CONTENT
             )
         }
@@ -736,82 +743,71 @@ class AodGlowActivity : ComponentActivity() {
     }
 
     /**
-     * Card 2: 🎤 Separate Big Dynamic Synced Lyrics Card
-     * (Spaced downward to lower-center zone, pure white active text color)
+     * Card 2: 🎤 Single Pure Dynamic Synced Lyrics Card
+     * (Focused Single-Line Pure White Bold Active Glide, Fixed Top Anchor, Expands Downwards Only)
      */
     private fun createBigLyricsCard(density: Float, isLandscape: Boolean): LinearLayout {
         lyricsCard = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            val lyricsBg = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                cornerRadius = 18 * density
-                setColor(Color.parseColor("#060709"))
-                setStroke((1 * density).toInt(), Color.parseColor("#151720"))
-            }
-            background = lyricsBg
-            setPadding((18 * density).toInt(), (14 * density).toInt(), (18 * density).toInt(), (14 * density).toInt())
+            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+            background = null
+            setPadding((16 * density).toInt(), (4 * density).toInt(), (16 * density).toInt(), (4 * density).toInt())
             layoutParams = LinearLayout.LayoutParams(
-                (if (isLandscape) 360 * density else 330 * density).toInt(),
+                (if (isLandscape) 440 * density else 350 * density).toInt(),
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply {
-                topMargin = (68 * density).toInt() // Spaced down to lower-middle zone!
+                topMargin = (if (isLandscape) 26 * density else 0).toInt() // In portrait handled by midSpacer; in landscape 26dp below music card!
             }
         }
 
-        tvLyricPrev = TextView(this).apply {
-            text = ""
-            textSize = 14f
-            alpha = 0.45f
-            setTextColor(Color.parseColor("#717E8E"))
-            gravity = Gravity.CENTER
-            maxLines = 1
-            ellipsize = android.text.TextUtils.TruncateAt.END
+        // Center Focused Active Line - Dual-Buffer Pure White BOLD Container
+        activeContainer = FrameLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply {
-                bottomMargin = (4 * density).toInt()
-            }
+            )
         }
 
-        tvLyricActive = TextView(this).apply {
+        tvActiveA = TextView(this).apply {
             text = "🎵 正在載入歌詞..."
-            textSize = 19.5f
-            alpha = 0.98f
+            textSize = 20.5f
+            alpha = 1.0f
             setTextColor(Color.parseColor("#FFFFFF")) // Pure White!
             typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
-            gravity = Gravity.CENTER
-            maxLines = 2
+            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+            maxLines = 4
             ellipsize = android.text.TextUtils.TruncateAt.END
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT
             ).apply {
-                topMargin = (4 * density).toInt()
-                bottomMargin = (4 * density).toInt()
+                gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
             }
         }
 
-        tvLyricNext = TextView(this).apply {
+        tvActiveB = TextView(this).apply {
             text = ""
-            textSize = 14f
-            alpha = 0.45f
-            setTextColor(Color.parseColor("#717E8E"))
-            gravity = Gravity.CENTER
-            maxLines = 1
+            textSize = 20.5f
+            alpha = 0f
+            setTextColor(Color.parseColor("#FFFFFF")) // Pure White!
+            typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
+            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+            maxLines = 4
             ellipsize = android.text.TextUtils.TruncateAt.END
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
+            visibility = View.GONE
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT
             ).apply {
-                topMargin = (4 * density).toInt()
+                gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
             }
         }
 
-        lyricsCard?.addView(tvLyricPrev)
-        lyricsCard?.addView(tvLyricActive)
-        lyricsCard?.addView(tvLyricNext)
+        activeContainer?.addView(tvActiveA)
+        activeContainer?.addView(tvActiveB)
+        activeSlotIndex = 0
+
+        lyricsCard?.addView(activeContainer)
 
         return lyricsCard!!
     }
@@ -845,10 +841,10 @@ class AodGlowActivity : ComponentActivity() {
             if (track.title != lastObservedTitle) {
                 lastObservedTitle = track.title
                 lastActiveLyric = ""
-                tvLyricPrev?.text = ""
-                tvLyricActive?.text = "🎵 正在載入歌詞..."
-                tvLyricNext?.text = ""
-                tvLyricActive?.setTextColor(Color.parseColor("#FFFFFF"))
+                val curActive = if (activeSlotIndex == 0) tvActiveA else tvActiveB
+                curActive?.text = "🎵 正在搜尋歌詞..."
+                curActive?.setTextColor(Color.parseColor("#FFFFFF"))
+                curActive?.alpha = 1.0f
                 LyricsEngine.fetchLyrics(track.title, track.artist)
             }
 
@@ -857,6 +853,8 @@ class AodGlowActivity : ComponentActivity() {
                 handler.post(progressRunnable)
             }
         } else {
+            musicCard?.visibility = View.GONE
+            lyricsCard?.visibility = View.GONE
             tvMusicTitle?.text = "手機音效氣氛燈"
             tvMusicArtist?.text = "音樂律動氣氛燈"
             lastObservedTitle = ""
@@ -891,44 +889,79 @@ class AodGlowActivity : ComponentActivity() {
 
     private fun updateLyrics(curMs: Long) {
         val lyricsState = LyricsEngine.lyricsState.value
+        val activeView = if (activeSlotIndex == 0) tvActiveA else tvActiveB
+        val inactiveView = if (activeSlotIndex == 0) tvActiveB else tvActiveA
+
         if (lyricsState.isLoading) {
-            tvLyricPrev?.text = ""
-            tvLyricActive?.text = "🎵 正在搜尋歌詞..."
-            tvLyricNext?.text = ""
-            tvLyricActive?.setTextColor(Color.parseColor("#A0AEC0"))
+            activeView?.text = "🎵 正在搜尋歌詞..."
+            activeView?.setTextColor(Color.parseColor("#A0AEC0"))
+            activeView?.alpha = 0.85f
+            inactiveView?.visibility = View.GONE
             lastActiveLyric = ""
         } else if (lyricsState.isFound && lyricsState.lines.isNotEmpty()) {
-            val (prev, active, next) = LyricsEngine.getActiveLines(curMs)
+            val (_, active, _) = LyricsEngine.getActiveLines(curMs)
             val currentText = if (active.isNotEmpty()) active else (if (lastTrackInfo.title.isNotEmpty()) lastTrackInfo.title else "🎵 音樂律動中")
 
             if (currentText != lastActiveLyric) {
+                val wasInitial = lastActiveLyric.isEmpty()
                 lastActiveLyric = currentText
-                // Silky Smooth Text Transition Animation
-                tvLyricActive?.animate()
-                    ?.alpha(0f)
-                    ?.translationY(-6f)
-                    ?.setDuration(90)
-                    ?.withEndAction {
-                        tvLyricPrev?.text = prev
-                        tvLyricActive?.text = currentText
-                        tvLyricNext?.text = next
-                        tvLyricActive?.translationY = 6f
-                        tvLyricActive?.animate()
-                            ?.alpha(1.0f)
-                            ?.translationY(0f)
-                            ?.setDuration(120)
-                            ?.start()
-                    }?.start()
-            } else {
-                tvLyricPrev?.text = prev
-                tvLyricNext?.text = next
+
+                if (wasInitial || isUserSeeking) {
+                    // Direct Instant Static Display (No animation lag on seek or initial load)
+                    activeView?.animate()?.cancel()
+                    inactiveView?.animate()?.cancel()
+
+                    activeView?.text = currentText
+                    activeView?.translationY = 0f
+                    activeView?.alpha = 1.0f
+                    activeView?.setTextColor(Color.parseColor("#FFFFFF"))
+                    activeView?.visibility = View.VISIBLE
+
+                    inactiveView?.visibility = View.GONE
+                } else {
+                    // 🌟 Silky Single-Line Pure White Glide Up Animation (340ms)
+                    val density = resources.displayMetrics.density
+                    val glideDistance = 26f * density
+
+                    // Setup incoming view with Pure White BOLD text BEFORE animating
+                    inactiveView?.animate()?.cancel()
+                    inactiveView?.text = currentText
+                    inactiveView?.setTextColor(Color.parseColor("#FFFFFF"))
+                    inactiveView?.translationY = glideDistance
+                    inactiveView?.alpha = 0f
+                    inactiveView?.visibility = View.VISIBLE
+
+                    // 1. Current active line floats UP and fades away
+                    activeView?.animate()?.cancel()
+                    activeView?.animate()
+                        ?.translationY(-glideDistance)
+                        ?.alpha(0f)
+                        ?.setDuration(300)
+                        ?.setInterpolator(DecelerateInterpolator(1.8f))
+                        ?.withEndAction {
+                            activeView?.visibility = View.GONE
+                            activeView?.translationY = 0f
+                        }
+                        ?.start()
+
+                    // 2. Incoming active line floats UP from below into center, shining Pure White Bold
+                    inactiveView?.animate()
+                        ?.translationY(0f)
+                        ?.alpha(1.0f)
+                        ?.setDuration(340)
+                        ?.setInterpolator(DecelerateInterpolator(1.8f))
+                        ?.start()
+
+                    // Toggle active buffer slot
+                    activeSlotIndex = 1 - activeSlotIndex
+                }
             }
-            tvLyricActive?.setTextColor(Color.parseColor("#FFFFFF")) // Pure White
         } else {
-            tvLyricPrev?.text = ""
-            tvLyricActive?.text = if (lastTrackInfo.title.isNotEmpty()) "🎵 ${lastTrackInfo.title}" else "🎵 純音樂律動中"
-            tvLyricNext?.text = ""
-            tvLyricActive?.setTextColor(Color.parseColor("#FFFFFF"))
+            activeView?.text = if (lastTrackInfo.title.isNotEmpty()) "🎵 ${lastTrackInfo.title}" else "🎵 純音樂律動中"
+            activeView?.alpha = 1.0f
+            activeView?.setTextColor(Color.parseColor("#FFFFFF"))
+            activeView?.translationY = 0f
+            inactiveView?.visibility = View.GONE
             lastActiveLyric = ""
         }
     }
