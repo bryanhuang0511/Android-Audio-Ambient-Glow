@@ -19,9 +19,9 @@
 
 <div align="center">
 
-| 📱 直向 AOD 歌詞音樂中樞 | 📻 橫向劇院音響模式 | 🎛️ 霓虹流光控制台 |
-| :---: | :---: | :---: |
-| <img src="Screenshots/02_Portrait_AOD_Mode.jpg" width="260" alt="直向 AOD 模式"/> | <img src="Screenshots/03_Landscape_Speaker_Mode.jpg" width="340" alt="橫向音響模式"/> | <img src="Screenshots/01_Settings_Control.jpg" width="260" alt="控制台設定"/> |
+<img src="Screenshots/02_Portrait_AOD_Mode.jpg" width="320" alt="手機音效氣氛燈 AOD 動態歌詞與霓虹流光實機展示"/>
+
+*▲ 專為息屏打造的極致沉浸 AOD 音樂中樞（純白雙緩衝歌詞 × 16 環密集高斯霓虹流光）*
 
 </div>
 
