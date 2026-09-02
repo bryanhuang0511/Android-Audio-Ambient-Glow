@@ -1,4 +1,4 @@
-﻿package com.example.audioambientglow.service
+package com.example.audioambientglow.service
 
 import android.content.Context
 import android.graphics.Canvas
@@ -12,11 +12,12 @@ import com.example.audioambientglow.data.GlowConfig
 import com.example.audioambientglow.engine.ColorPaletteEngine
 import com.example.audioambientglow.engine.GlowPhysicsEngine
 import com.example.audioambientglow.engine.TrackGeometry
+import kotlin.math.exp
 
 /**
- * 144Hz Low-Latency Hardware GPU Mesh Track Renderer
- * Renders the pure border glow along the phone screen bezels.
- * Zero hard wire line, pure Gaussian inward bloom, 100% clean silence shutoff.
+ * 144Hz Low-Latency Hardware GPU Mesh & Neon Core Track Renderer
+ * Renders vibrant neon border glow + silky Gaussian inward bloom along screen bezels.
+ * 16-Ring Dense Gaussian Mesh + Crisp Outer Neon Core Line (100% visible on LCD, 0 banding, Silence Shutoff).
  */
 class GlowTrackView @JvmOverloads constructor(
     context: Context,
@@ -27,31 +28,59 @@ class GlowTrackView @JvmOverloads constructor(
     private val physicsEngine = GlowPhysicsEngine()
     private var config = GlowConfig()
     private var audioFeatures = AudioFeatures()
+    private var isMusicPlaying = true // Default to true in AOD Music Hub
 
     private var trackGeometry: TrackGeometry? = null
 
     private val meshPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        style = Paint.Style.FILL
         isDither = true
         isFilterBitmap = true
+    }
+
+    private val corePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.ROUND
+        strokeJoin = Paint.Join.ROUND
+        isDither = true
     }
 
     private var isRenderingActive = false
     private var lastFrameTimeNanos: Long = 0
     private var isAodFullscreen = false
 
-    // Pre-allocated arrays for GPU drawVertices (6 concentric micro-rings for pure Gaussian feathering)
+    // 🌟 Dense 16-Ring Gaussian Radial Falloff Mesh
     private val numSegments = 160
-    private val numRings = 6 // Outer(0.0), Ring1(0.15), Ring2(0.35), Ring3(0.60), Ring4(0.85), Inner(1.0)
+    private val numRings = 16
     private val totalVertices = (numSegments + 1) * numRings
     private val vertexCoords = FloatArray(totalVertices * 2)
     private val vertexColors = IntArray(totalVertices)
-    
+
+    // Pre-computed normalized ring depths and Gaussian alpha factors
+    private val ringDepths = FloatArray(numRings)
+    private val ringAlphas = FloatArray(numRings)
+
     private val totalIndices = numSegments * (numRings - 1) * 6
     private val indexArray = ShortArray(totalIndices)
 
     init {
         setWillNotDraw(false)
+        computeRingProfiles()
         buildIndexBuffer()
+    }
+
+    /**
+     * Pre-computes the 16-step Gaussian Falloff profile with a cubic gamma tail.
+     */
+    private fun computeRingProfiles() {
+        for (r in 0 until numRings) {
+            val u = r.toFloat() / (numRings - 1).toFloat() // [0.0, 1.0]
+            ringDepths[r] = u
+            val gaussian = exp(-3.2f * u * u)
+            val cubicTail = (1.0f - u * u * u).coerceIn(0f, 1f)
+            ringAlphas[r] = (gaussian * cubicTail).coerceIn(0f, 1f)
+        }
     }
 
     private fun buildIndexBuffer() {
@@ -76,6 +105,7 @@ class GlowTrackView @JvmOverloads constructor(
 
     fun setAodFullscreen(enabled: Boolean) {
         this.isAodFullscreen = enabled
+        startRenderLoop()
         postInvalidateOnAnimation()
     }
 
@@ -85,10 +115,19 @@ class GlowTrackView @JvmOverloads constructor(
         requestRender()
     }
 
+    fun updatePlaybackState(isPlaying: Boolean) {
+        this.isMusicPlaying = isPlaying
+        if (isPlaying) {
+            startRenderLoop()
+            postInvalidateOnAnimation()
+        }
+    }
+
     fun updateAudio(features: AudioFeatures) {
         this.audioFeatures = features
-        if (!isRenderingActive && (features.rawRms > config.noiseGateThreshold || features.bassEnergy > config.noiseGateThreshold)) {
+        if (!isRenderingActive && (isMusicPlaying || features.rawRms > config.noiseGateThreshold)) {
             startRenderLoop()
+            postInvalidateOnAnimation()
         }
     }
 
@@ -145,7 +184,7 @@ class GlowTrackView @JvmOverloads constructor(
         }
     }
 
-    private var latestFrameState = com.example.audioambientglow.engine.GlowFrameState(0f, 0f, 0.6f, 0f, 0f, 0f, true)
+    private var latestFrameState = com.example.audioambientglow.engine.GlowFrameState(0.7f, 0f, 0.6f, 0f, 0f, 0f, false)
 
     override fun doFrame(frameTimeNanos: Long) {
         if (!isRenderingActive) return
@@ -160,7 +199,8 @@ class GlowTrackView @JvmOverloads constructor(
         latestFrameState = physicsEngine.update(
             dt = dt,
             audio = audioFeatures,
-            config = config
+            config = config,
+            isMusicPlaying = isMusicPlaying
         )
 
         if (latestFrameState.isSilent) {
@@ -195,9 +235,8 @@ class GlowTrackView @JvmOverloads constructor(
         val geometry = trackGeometry ?: return
 
         val brightness = state.brightness
-        val thicknessPx = config.glowThicknessDp * density
-        val featheringPx = (config.bloomFeatheringDp * density).coerceAtLeast(18f * density)
-        val totalDepthPx = thicknessPx + featheringPx
+        // 🌟 Generous golden bezel bloom (24dp) to extend past Samsung A32's physical screen bezels
+        val totalDepthPx = 24f * density
 
         val colors = ColorPaletteEngine.getPresetColors(config.themePreset, config)
 
@@ -206,10 +245,7 @@ class GlowTrackView @JvmOverloads constructor(
             canvas.translate(state.pixelShiftX, state.pixelShiftY)
         }
 
-        // 🌟 6-Ring Pure Gaussian Radial Falloff Mesh (Zero hard wire line, perfectly feathered)
-        val ringDepths = floatArrayOf(0.0f, 0.15f, 0.35f, 0.60f, 0.85f, 1.0f)
-        val ringAlphas = floatArrayOf(1.0f, 0.82f, 0.52f, 0.24f, 0.06f, 0.0f)
-
+        // 1. 🌟 GPU Hardware Gaussian Feathered Mesh
         for (r in 0 until numRings) {
             val depthFraction = ringDepths[r]
             val alphaFactor = ringAlphas[r] * brightness
@@ -239,7 +275,6 @@ class GlowTrackView @JvmOverloads constructor(
             }
         }
 
-        // Draw GPU hardware-interpolated smooth mesh
         try {
             canvas.drawVertices(
                 Canvas.VertexMode.TRIANGLES,
@@ -257,6 +292,28 @@ class GlowTrackView @JvmOverloads constructor(
             )
         } catch (e: Throwable) {
             // Fallback
+        }
+
+        // 2. ⚡ Luminous Outer Neon Core Line (Vibrant, electric RGB edge, perfectly anti-aliased)
+        val coreStrokeWidth = (2.8f * density).coerceAtLeast(2.0f)
+        corePaint.strokeWidth = coreStrokeWidth
+
+        for (i in 0 until numSegments) {
+            val s1 = i.toFloat() / numSegments.toFloat()
+            val s2 = (i + 1).toFloat() / numSegments.toFloat()
+            val p1 = geometry.getPointAndNormal(s1)
+            val p2 = geometry.getPointAndNormal(s2)
+
+            val pureColor = ColorPaletteEngine.evaluateColor(
+                (s1 + s2) * 0.5f,
+                state.phase,
+                colors,
+                state.dynamicHueShift
+            )
+
+            val coreAlpha = (brightness * 0.92f * 255f).toInt().coerceIn(0, 255)
+            corePaint.color = (coreAlpha shl 24) or (ColorPaletteEngine.red(pureColor) shl 16) or (ColorPaletteEngine.green(pureColor) shl 8) or ColorPaletteEngine.blue(pureColor)
+            canvas.drawLine(p1.x, p1.y, p2.x, p2.y, corePaint)
         }
 
         canvas.restore()

@@ -172,6 +172,7 @@ class AodGlowActivity : ComponentActivity() {
         AodStateManager.setAodActive(true)
         val config = prefsRepo.getConfig()
         audioManager.start(config.audioSourceType)
+        glowTrackView.updatePlaybackState(MediaPlaybackDetector.playbackStateFlow.value.isPlaying)
         handler.removeCallbacks(progressRunnable)
         handler.post(progressRunnable)
     }
@@ -181,6 +182,7 @@ class AodGlowActivity : ComponentActivity() {
         AodStateManager.setAodActive(true)
         val config = prefsRepo.getConfig()
         audioManager.start(config.audioSourceType)
+        glowTrackView.updatePlaybackState(MediaPlaybackDetector.playbackStateFlow.value.isPlaying)
         updateTimeAndDate()
         handler.removeCallbacks(progressRunnable)
         handler.post(progressRunnable)
@@ -1063,6 +1065,7 @@ class AodGlowActivity : ComponentActivity() {
                 launch {
                     MediaPlaybackDetector.playbackStateFlow.collectLatest { track ->
                         updateMusicState(track)
+                        glowTrackView.updatePlaybackState(track.isPlaying)
                     }
                 }
                 launch {

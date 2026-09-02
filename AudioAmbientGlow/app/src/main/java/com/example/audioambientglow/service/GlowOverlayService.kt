@@ -234,10 +234,13 @@ class GlowOverlayService : Service() {
             return
         }
 
-        // Use MATCH_PARENT so that system automatically scales the view to full screen in Portrait & Landscape
+        val metrics = android.util.DisplayMetrics()
+        @Suppress("DEPRECATION")
+        windowManager.defaultDisplay.getRealMetrics(metrics)
+
         val layoutParams = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.MATCH_PARENT,
-            WindowManager.LayoutParams.MATCH_PARENT,
+            metrics.widthPixels,
+            metrics.heightPixels,
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
             } else {
@@ -248,10 +251,11 @@ class GlowOverlayService : Service() {
             WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
             WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
             WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
+            WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS or
             WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
             PixelFormat.TRANSLUCENT
         ).apply {
-            gravity = Gravity.FILL
+            gravity = Gravity.TOP or Gravity.START
             x = 0
             y = 0
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
@@ -269,7 +273,7 @@ class GlowOverlayService : Service() {
             overlayView = view
             windowLayoutParams = layoutParams
             isOverlayAttached = true
-            Log.d(tag, "Fullscreen Glow Overlay attached successfully (MATCH_PARENT auto-rotation).")
+            Log.d(tag, "Fullscreen Glow Overlay attached successfully (w=${metrics.widthPixels}, h=${metrics.heightPixels}).")
         } catch (e: Exception) {
             Log.e(tag, "Failed to add floating overlay: ${e.message}", e)
         }
@@ -280,14 +284,17 @@ class GlowOverlayService : Service() {
         val view = overlayView ?: return
         val lp = windowLayoutParams ?: return
         try {
-            lp.width = WindowManager.LayoutParams.MATCH_PARENT
-            lp.height = WindowManager.LayoutParams.MATCH_PARENT
+            val metrics = android.util.DisplayMetrics()
+            @Suppress("DEPRECATION")
+            windowManager.defaultDisplay.getRealMetrics(metrics)
+            lp.width = metrics.widthPixels
+            lp.height = metrics.heightPixels
             windowManager.updateViewLayout(view, lp)
             view.post {
                 view.requestLayout()
                 view.invalidate()
             }
-            Log.d(tag, "Overlay updated onConfigurationChanged (orientation=${newConfig.orientation})")
+            Log.d(tag, "Overlay updated onConfigurationChanged (w=${metrics.widthPixels}, h=${metrics.heightPixels})")
         } catch (e: Exception) {
             Log.e(tag, "Error updating layout on configuration change: ${e.message}", e)
         }
