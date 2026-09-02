@@ -1,14 +1,14 @@
-# 📱 AudioAmbientGlow 全機型通用核心架構與跨裝置相容性規範
+# 📱 AudioAmbientGlow 全機型核心架構與工程規範 (Core Architecture Spec)
 
-> **建立時間**：2026-09-02  
-> **適用平台**：Android 8.0+ (API 24 ~ 36) • 全 Android 廠牌（Samsung One UI / vivo OriginOS / Google Pixel / POCO / Xiaomi / OPPO 等）  
-> **核心狀態**：🟢 **AOD 視覺排版與動態歌詞引擎 100% 全機型統一**
+> **版本基準**：🟢 **v1.2.0 (全機型通用 / OLED 極致雙模架構)**  
+> **適用平台**：Android 8.0+ (API 24 ~ 36) • 全 Android 廠牌（Samsung One UI / vivo OriginOS / Google Pixel / Xiaomi / OPPO 等）  
+> **定位說明**：內部開發者技術規範手冊，闡述核心歌詞引擎、GPU 網格渲染與音訊感知管線之底層實作。
 
 ---
 
-## 🧭 一、跨裝置統一模組清單 (100% Universal Components)
+## 🧭 一、跨裝置統一核心模組 (Universal Architecture)
 
-本專案之下列核心模組在 **Samsung Galaxy A32**、**vivo** 以及所有 Android 裝置上均採用 **單一程式碼庫（Single Unified Codebase）**，具備高度相容性與無縫移植性：
+本專案之下列核心模組在所有 Android 裝置上均採用 **單一程式碼庫（Single Unified Codebase）**，具備高度相容性與無縫移植性：
 
 ### 1. 🎤 動態雙緩衝歌詞引擎 (`LyricsEngine.kt`)
 - **多線程並行檢索**：自動並行請求 LRCLIB 多組端點（精準檢索、歌手+歌名清理、Fallback 標題），0 延遲自動套用最快回應。
@@ -26,22 +26,14 @@
 
 ---
 
-## 🔬 二、音訊感知與發光技術機制深度解析 (Audio & Glow Pipeline)
+## 🔬 二、GPU 渲染與音訊感知管線 (Rendering & Audio Pipeline)
 
-### 1. 💡 v1.1.0 vs v1.2.0 在 Samsung A32 上的發光差異根因
-| 版本 | 發光行為 | 底層邏輯差異 | 說明 |
-| :--- | :--- | :--- | :--- |
-| **v1.1.0** | ⚠️ **會發光，但無節奏感且暫停不熄滅** | 包含 `if (isAodFullscreen) brightness.coerceAtLeast(0.45f)` 兜底機制 | 即使音訊波形為 0，AOD 全螢幕仍強制維持 45% 亮度旋轉，但無法隨音樂鼓點跳動，且暫停時無法完全熄滅。 |
-| **v1.2.0** | 🌑 **完全不發光 (全黑)** | 導入 `100% Silence Shutoff` 嚴格節電熄滅機制 | 三星 One UI 採用硬體音訊直通 (Direct Offload)，`Visualizer(0)` 獲取振幅為 0，被判定為「靜音」而徹底熄滅。 |
+### 1. 🌫️ 16 環密集高斯羽化網格 (`GlowTrackView.kt`)
+- 採用 GPU 頂點網格（`Canvas.drawVertices`），預先分配 16 環 × 160 分段之頂點與索引緩衝區。
+- 採用 $e^{-3.2u^2}(1-u^3)$ 複合高斯與立方加速沉黑曲線，確保光芒平滑羽化至 0.0 alpha，在 LCD 與 OLED 螢幕上皆零色階斷層。
+- 結合 2.8dp 鮮亮霓虹外邊緣（`corePaint`），突破實體手機外框遮擋，呈現立體深邃光芒。
 
-### 2. 🛠️ 未來三星 A32 專屬發光修復策略（待實作）
-- **智慧雙模感知 (Smart Dual-Mode Fallback)**：
-  - **有波形輸入時 (vivo 等)**：100% 真實 30ms DSP 瞬態鼓點狂飆。
-  - **波形為 0 但正在播歌時 (`isPlaying == true`, Samsung A32)**：自動切換至「**AuraFlow 智慧巡航律動**」，根據歌曲播放進度驅動 144Hz 邊框呼吸流光；**音樂暫停時則 100% 熄滅節電**。
-
----
-
-## 🗄️ 三、歷史備份目錄說明 (`vivo_version_backup`)
-- **路徑**：`mobile/vivo_version_backup/GlowTrackView_VivoOriginal.kt`
-- **性質**：早期 4 環硬線邊框與舊版渲染管線的歷史參考源碼。
-- **維護方針**：目前主線已全面由 6 環高斯羽化 GPU Mesh 與雙緩衝歌詞接管，此檔案可作為歷史存檔保留，亦可隨時清理而不影響任何專案運作。
+### 2. ⚡ AuraFlow 智慧雙模音訊引擎 (`GlowPhysicsEngine.kt`)
+- **Mode A (即時 DSP 感知)**：開放全局音效通道 (`Visualizer(0)`) 之裝置，以 25ms 瞬態響應捕捉真實重低音鼓點。
+- **Mode B (AuraFlow 智慧直通)**：針對 Samsung One UI 等將音訊直通硬體 DAC 輸出之機型，自動在播歌時生成 8 倍動態節奏起伏（0.12 rev/s 慢速巡航 $\rightarrow$ 1.30 rev/s 鼓點狂飆）。
+- **100% 靜音熄滅**：音樂暫停時 0.0 秒徹底停止渲染管線，CPU/GPU 負載歸零。
